@@ -26,6 +26,7 @@ redis==5.0.1
 
 # Task Queue
 celery==5.3.4
+flower==2.0.1
 
 # Utilities
 python-dotenv==1.0.0

@@ -3,6 +3,7 @@ from PIL import Image
 from io import BytesIO
 import os
 from datetime import datetime
+import time
 
 class ImageGenerator:
     """
@@ -12,23 +13,57 @@ class ImageGenerator:
     def __init__(self):
         self.output_dir = "data/generated_images"
         os.makedirs(self.output_dir, exist_ok=True)
+        self.pollinations_api_key = os.getenv('POLLINATIONS_API_KEY', '')
+        self.base_url = "https://image.pollinations.ai"
     
     def generate_with_pollinations(self, prompt, width=1024, height=1024):
         """
-        Generate image using Pollinations.ai (completely free, no API key)
+        Generate image using Pollinations.ai
+        Fixed to properly handle their API responses
         """
         try:
-            # Pollinations API endpoint
-            url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(prompt)}"
+            # Clean and encode prompt
+            clean_prompt = prompt.replace('\n', ' ').strip()
+            
+            # Remove any instructions about no text/watermark from prompt as it causes issues
+            clean_prompt = clean_prompt.replace('no text', '').replace('no watermark', '').strip()
+            
+            # Build URL
+            url = f"{self.base_url}/prompt/{requests.utils.quote(clean_prompt)}"
+            
             params = {
-                "width": width,
-                "height": height,
-                "nologo": "true"
+                "width": str(width),
+                "height": str(height),
+                "seed": "-1",
+                "model": "flux",
+                "nologo": "true",
+                "enhance": "false",
+                "private": "false"
             }
             
-            response = requests.get(url, params=params, timeout=60)
+            print(f"Generating image...")
+            print(f"Prompt: {clean_prompt[:100]}...")
             
-            if response.status_code == 200:
+            # Make request with proper headers
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            
+            response = requests.get(
+                url,
+                params=params,
+                headers=headers,
+                timeout=120,
+                allow_redirects=True,
+                stream=True
+            )
+            
+            print(f"Status: {response.status_code}")
+            content_type = response.headers.get('content-type', '')
+            print(f"Content-Type: {content_type}")
+            
+            if response.status_code == 200 and 'image' in content_type:
+                # Load image
                 image = Image.open(BytesIO(response.content))
                 
                 # Save image
@@ -37,14 +72,66 @@ class ImageGenerator:
                 filepath = os.path.join(self.output_dir, filename)
                 image.save(filepath)
                 
+                print(f"✅ Image saved: {filepath}")
+                
                 return {
                     "success": True,
                     "filepath": filepath,
-                    "url": url,
+                    "url": response.url,
                     "prompt": prompt
                 }
             else:
-                return {"success": False, "error": "Failed to generate image"}
+                error_msg = f"Failed: {response.status_code}, Content-Type: {content_type}"
+                if 'html' in content_type:
+                    error_msg += " (Got HTML instead of image - API might be down)"
+                print(f"❌ {error_msg}")
+                return {"success": False, "error": error_msg}
+                
+        except Exception as e:
+            print(f"❌ Exception: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "error": str(e)}
+    
+    def generate_with_huggingface(self, prompt, width=1024, height=1024):
+        """
+        Alternative: Generate using Hugging Face Inference API (free tier)
+        Model: stabilityai/stable-diffusion-2-1
+        """
+        try:
+            API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1"
+            
+            headers = {}
+            hf_token = os.getenv('HUGGINGFACE_TOKEN')
+            if hf_token:
+                headers["Authorization"] = f"Bearer {hf_token}"
+            
+            payload = {
+                "inputs": prompt,
+                "parameters": {
+                    "width": width,
+                    "height": height,
+                }
+            }
+            
+            response = requests.post(API_URL, headers=headers, json=payload, timeout=90)
+            
+            if response.status_code == 200:
+                image = Image.open(BytesIO(response.content))
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"huggingface_{timestamp}.png"
+                filepath = os.path.join(self.output_dir, filename)
+                image.save(filepath)
+                
+                return {
+                    "success": True,
+                    "filepath": filepath,
+                    "prompt": prompt,
+                    "source": "huggingface"
+                }
+            else:
+                return {"success": False, "error": f"HuggingFace API error: {response.status_code}"}
                 
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -152,6 +239,7 @@ class ImageGenerator:
     def generate_social_post_image(self, content_idea, brand_profile):
         """
         Generate image based on content idea and brand profile
+        Tries Pollinations first, falls back to HuggingFace if needed
         """
         # Create detailed prompt from content idea
         title = content_idea.get('title', '')
@@ -159,10 +247,20 @@ class ImageGenerator:
         brand_voice = brand_profile.get('brand_voice', 'professional')
         visual_style = brand_profile.get('visual_style', 'modern')
         
-        prompt = f"{title}. {description}. Style: {visual_style}, {brand_voice}, high quality, professional photography, Instagram worthy"
+        prompt = f"{title}. {description}. Style: {visual_style}, {brand_voice}, high quality, professional photography, Instagram worthy, no text, no watermark"
         
-        # Generate with Pollinations
+        # Try Pollinations first
         result = self.generate_with_pollinations(prompt)
+        
+        # If Pollinations fails, try HuggingFace
+        if not result.get('success'):
+            print("Pollinations failed, trying HuggingFace...")
+            result = self.generate_with_huggingface(prompt)
+        
+        # If both fail, create a text-based image
+        if not result.get('success'):
+            print("All image generation failed, creating text image...")
+            result = self.create_text_image(title, brand_profile)
         
         return result
     
@@ -184,23 +282,37 @@ class ImageGenerator:
 if __name__ == "__main__":
     generator = ImageGenerator()
     
-    # Test 1: Pollinations
-    print("Testing Pollinations.ai...")
-    result1 = generator.generate_with_pollinations(
-        "Modern minimalist product photography, clean background, professional lighting"
-    )
-    print(f"Result: {result1}")
+    # Test 1: Pollinations with retry
+    print("=" * 60)
+    print("Testing Pollinations.ai Image Generation")
+    print("=" * 60)
+    
+    test_prompt = "A modern minimalist product photography of a sleek laptop on a clean white desk, professional lighting, high quality, 4k"
+    
+    print(f"\nPrompt: {test_prompt}\n")
+    
+    result1 = generator.generate_with_pollinations(test_prompt, 1024, 1024)
+    print(f"\nResult: {result1}")
+    
+    if not result1.get('success'):
+        print("\n⚠️  Pollinations failed, trying HuggingFace...")
+        result2 = generator.generate_with_huggingface(test_prompt, 1024, 1024)
+        print(f"HuggingFace Result: {result2}")
     
     # Test 2: Stock photo
-    print("\nTesting Lorem Picsum...")
-    result2 = generator.generate_with_picsum()
-    print(f"Result: {result2}")
+    print("\n" + "=" * 60)
+    print("Testing Lorem Picsum (Stock Photos)")
+    print("=" * 60)
+    result3 = generator.generate_with_picsum(1080, 1080)
+    print(f"Result: {result3}")
     
     # Test 3: Text image
-    print("\nTesting text image...")
+    print("\n" + "=" * 60)
+    print("Testing Text Image Generation")
+    print("=" * 60)
     brand_profile = {"username": "testbrand"}
-    result3 = generator.create_text_image(
-        "Your success is our mission",
+    result4 = generator.create_text_image(
+        "Your Success Is Our Mission",
         brand_profile
     )
-    print(f"Result: {result3}")
+    print(f"Result: {result4}")

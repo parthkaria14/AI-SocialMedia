@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getBrand, generateContent, getBrandAnalytics, syncBrand } from '@/lib/api';
+import { getBrand, generateContent, getBrandAnalytics, syncBrand, getBrandPosts } from '@/lib/api';
+import { ensureArray, ensureString, truncate } from '@/lib/helpers';
 import { ArrowLeft, RefreshCw, Sparkles, BarChart3, Calendar, Instagram } from 'lucide-react';
 import Link from 'next/link';
+import ContentGrid from '@/components/ContentGrid';
 
 export default function BrandDetailPage() {
     const params = useParams();
@@ -14,6 +16,7 @@ export default function BrandDetailPage() {
     const [brand, setBrand] = useState<any>(null);
     const [analytics, setAnalytics] = useState<any>(null);
     const [contentIdeas, setContentIdeas] = useState<any[]>([]);
+    const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [generatingContent, setGeneratingContent] = useState(false);
@@ -25,12 +28,14 @@ export default function BrandDetailPage() {
 
     const loadBrandData = async () => {
         try {
-            const [brandData, analyticsData] = await Promise.all([
+            const [brandData, analyticsData, postsData] = await Promise.all([
                 getBrand(brandId),
                 getBrandAnalytics(brandId).catch(() => null),
+                getBrandPosts(brandId).catch(() => []),
             ]);
             setBrand(brandData);
             setAnalytics(analyticsData);
+            setPosts(postsData);
         } catch (error) {
             console.error('Failed to load brand:', error);
         } finally {
@@ -198,50 +203,33 @@ export default function BrandDetailPage() {
                                         </div>
                                         <div>
                                             <h3 className="font-semibold text-gray-700 mb-2">Target Audience</h3>
-                                            {typeof brandProfile.target_audience === 'string' ? (
-                                                <p className="text-gray-900">{brandProfile.target_audience}</p>
-                                            ) : (
-                                                <div className="space-y-2">
-                                                    {brandProfile.target_audience?.demographics && (
-                                                        <p className="text-gray-900">
-                                                            <span className="font-medium">Demographics:</span> {brandProfile.target_audience.demographics}
-                                                        </p>
-                                                    )}
-                                                    {brandProfile.target_audience?.interests && (
-                                                        <p className="text-gray-900">
-                                                            <span className="font-medium">Interests:</span> {brandProfile.target_audience.interests}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
+                                            <p className="text-gray-900">{truncate(ensureString(brandProfile.target_audience), 100)}</p>
                                         </div>
                                         <div className="md:col-span-2">
                                             <h3 className="font-semibold text-gray-700 mb-2">Content Themes</h3>
                                             <div className="flex flex-wrap gap-2">
-                                                {Array.isArray(brandProfile.content_themes) ? (
-                                                    brandProfile.content_themes.map((theme: string, idx: number) => (
-                                                        <span
-                                                            key={idx}
-                                                            className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
-                                                        >
-                                                            {theme}
-                                                        </span>
-                                                    ))
-                                                ) : brandProfile.content_themes ? (
-                                                    <span className="text-gray-900">{String(brandProfile.content_themes)}</span>
-                                                ) : null}
+                                                {ensureArray<string>(brandProfile.content_themes).map((theme: string, idx: number) => (
+                                                    <span
+                                                        key={idx}
+                                                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
+                                                    >
+                                                        {theme}
+                                                    </span>
+                                                ))}
+                                                {ensureArray(brandProfile.content_themes).length === 0 && (
+                                                    <span className="text-gray-600 text-sm">No themes available</span>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="md:col-span-2">
                                             <h3 className="font-semibold text-gray-700 mb-2">Content Pillars</h3>
                                             <ul className="list-disc list-inside space-y-1">
-                                                {Array.isArray(brandProfile.content_pillars) ? (
-                                                    brandProfile.content_pillars.map((pillar: string, idx: number) => (
-                                                        <li key={idx} className="text-gray-900">{pillar}</li>
-                                                    ))
-                                                ) : brandProfile.content_pillars ? (
-                                                    <li className="text-gray-900">{String(brandProfile.content_pillars)}</li>
-                                                ) : null}
+                                                {ensureArray<string>(brandProfile.content_pillars).map((pillar: string, idx: number) => (
+                                                    <li key={idx} className="text-gray-900">{pillar}</li>
+                                                ))}
+                                                {ensureArray(brandProfile.content_pillars).length === 0 && (
+                                                    <li className="text-gray-600">No pillars available</li>
+                                                )}
                                             </ul>
                                         </div>
                                     </div>
@@ -271,39 +259,95 @@ export default function BrandDetailPage() {
 
                 {activeTab === 'content' && (
                     <div className="space-y-6">
-                        {contentIdeas.length === 0 ? (
-                            <div className="bg-white rounded-lg shadow p-12 text-center">
-                                <Sparkles className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                                    No Content Ideas Yet
-                                </h3>
-                                <p className="text-gray-600 mb-6">
-                                    Click "Generate Content" to create AI-powered content ideas
-                                </p>
+                        {/* Filter Tabs */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => loadBrandData()}
+                                    className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                                >
+                                    All Posts ({posts.length})
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        const drafts = await getBrandPosts(brandId, 'draft');
+                                        setPosts(drafts);
+                                    }}
+                                    className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+                                >
+                                    Drafts ({posts.filter(p => p.status === 'draft').length})
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        const scheduled = await getBrandPosts(brandId, 'scheduled');
+                                        setPosts(scheduled);
+                                    }}
+                                    className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+                                >
+                                    Scheduled ({posts.filter(p => p.status === 'scheduled').length})
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        const posted = await getBrandPosts(brandId, 'posted');
+                                        setPosts(posted);
+                                    }}
+                                    className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+                                >
+                                    Posted ({posts.filter(p => p.status === 'posted').length})
+                                </button>
                             </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {contentIdeas.map((idea, idx) => (
-                                    <div key={idx} className="bg-white rounded-lg shadow p-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                            {idea.title}
-                                        </h3>
-                                        <p className="text-gray-600 mb-4">{idea.description}</p>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded">
-                                                {idea.content_type}
-                                            </span>
-                                            <Link
-                                                href={`/brand/${brandId}/create?idea=${idx}`}
-                                                className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-                                            >
-                                                Create Post →
-                                            </Link>
+                        </div>
+
+                        {/* Content Ideas Section */}
+                        {contentIdeas.length > 0 && (
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 mb-4">AI Generated Ideas</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                    {contentIdeas.map((idea, idx) => (
+                                        <div key={idx} className="bg-white rounded-lg shadow p-6">
+                                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                                {idea.title}
+                                            </h3>
+                                            <p className="text-gray-600 mb-4">{idea.description}</p>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded">
+                                                    {idea.content_type}
+                                                </span>
+                                                <Link
+                                                    href={`/brand/${brandId}/create?idea=${encodeURIComponent(JSON.stringify(idea))}`}
+                                                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                                                >
+                                                    Create Post →
+                                                </Link>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         )}
+
+                        {/* Posts Grid */}
+                        <div>
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-xl font-bold text-gray-900">Content</h2>
+                                <Link
+                                    href={`/brand/${brandId}/create`}
+                                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                                >
+                                    + Create New Post
+                                </Link>
+                            </div>
+                            <ContentGrid
+                                posts={posts}
+                                onEdit={(post) => router.push(`/brand/${brandId}/create?edit=${post.id}`)}
+                                onDelete={async (postId) => {
+                                    if (confirm('Delete this post?')) {
+                                        // TODO: Add delete API endpoint
+                                        alert('Delete functionality coming soon!');
+                                    }
+                                }}
+                            />
+                        </div>
                     </div>
                 )}
 

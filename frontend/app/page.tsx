@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getBrands, type Brand } from '@/lib/api';
+import { ensureString, truncate } from '@/lib/helpers';
 import { Plus, TrendingUp, Users, FileText } from 'lucide-react';
 import Link from 'next/link';
 import CreateBrandModal from '@/components/CreateBrandModal';
@@ -155,16 +156,10 @@ export default function Dashboard() {
                           {brand.brand_profile.brand_voice || 'N/A'}
                         </span>
                       </div>
-
                       <div className="text-sm">
                         <span className="text-gray-600">Audience:</span>
                         <span className="ml-2 font-medium">
-                          {(() => {
-                            const audience = brand.brand_profile.target_audience;
-                            if (typeof audience === 'string') return audience.slice(0, 40);
-                            if (audience) return JSON.stringify(audience).slice(0, 40);
-                            return 'N/A';
-                          })()}...
+                          {truncate(ensureString(brand.brand_profile.target_audience), 40)}
                         </span>
                       </div>
                     </div>

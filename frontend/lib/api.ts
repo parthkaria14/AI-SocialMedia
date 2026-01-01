@@ -97,9 +97,8 @@ export const createPost = async (data: {
 };
 
 export const getBrandPosts = async (brandId: number, status?: string) => {
-    const response = await api.get(`/posts/brand/${brandId}`, {
-        params: status ? { status } : {},
-    });
+    const params = status ? { status } : {};
+    const response = await api.get(`/posts/brand/${brandId}`, { params });
     return response.data;
 };
 

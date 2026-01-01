@@ -2,7 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #000000;
 }
 
 @theme inline {
@@ -12,15 +12,74 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Force all text colors to black */
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Override Tailwind gray text colors to black */
+.text-gray-600,
+.text-gray-700,
+.text-gray-800,
+.text-gray-900 {
+  color: #000000 !important;
+}
+
+/* Keep some colors for specific purposes */
+.text-blue-600,
+.text-blue-700,
+.text-blue-800 {
+  color: #2563eb !important;
+}
+
+.text-green-600,
+.text-green-800 {
+  color: #16a34a !important;
+}
+
+.text-purple-600,
+.text-purple-800 {
+  color: #9333ea !important;
+}
+
+.text-red-600,
+.text-red-700 {
+  color: #dc2626 !important;
+}
+
+.text-yellow-800 {
+  color: #854d0e !important;
+}
+
+/* Force black text in form elements */
+input,
+textarea,
+select {
+  color: #000000 !important;
+}
+
+/* Placeholder text can stay lighter */
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280 !important;
+}
+
+/* Override any remaining gray classes */
+.text-gray-400,
+.text-gray-500 {
+  color: #000000 !important;
+}
+
+/* Ensure all paragraph and span text is black */
+p, span, div, h1, h2, h3, h4, h5, h6, li, label {
+  color: inherit;
+}
+
+/* Force font medium/semibold text to be black */
+.font-medium,
+.font-semibold,
+.font-bold {
+  color: inherit;
 }

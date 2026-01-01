@@ -47,16 +47,6 @@ class PostCreate(BaseModel):
     hashtags: List[str]
     scheduled_time: Optional[str] = None
 
-class ImageGenerate(BaseModel):
-    brand_id: int
-    content_ideas: List[dict]
-    count: int = 3
-
-class CaptionGenerate(BaseModel):
-    brand_id: int
-    content_idea: dict
-    platform: str = "instagram"
-
 # Routes
 
 @app.get("/")
@@ -169,19 +159,19 @@ def generate_content(request: ContentGenerate, db: Session = Depends(get_db)):
     }
 
 @app.post("/content/caption")
-def generate_caption(request: CaptionGenerate, db: Session = Depends(get_db)):
+def generate_caption(brand_id: int, content_idea: dict, platform: str = "instagram", db: Session = Depends(get_db)):
     """
     Generate caption for specific content idea
     """
-    brand = db.query(Brand).filter(Brand.id == request.brand_id).first()
+    brand = db.query(Brand).filter(Brand.id == brand_id).first()
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
     
     analyzer = BrandAnalyzer()
     caption_data = analyzer.generate_caption(
         brand.brand_profile,
-        request.content_idea,
-        platform=request.platform
+        content_idea,
+        platform=platform
     )
     
     return caption_data
@@ -223,7 +213,7 @@ def create_post(post: PostCreate, db: Session = Depends(get_db)):
 @app.get("/posts/brand/{brand_id}")
 def get_brand_posts(brand_id: int, status: Optional[str] = None, db: Session = Depends(get_db)):
     """
-    Get all posts for a brand
+    Get all posts for a brand with optional status filter
     """
     query = db.query(Post).filter(Post.brand_id == brand_id)
     
@@ -231,7 +221,27 @@ def get_brand_posts(brand_id: int, status: Optional[str] = None, db: Session = D
         query = query.filter(Post.status == status)
     
     posts = query.order_by(Post.created_at.desc()).all()
-    return posts
+    
+    # Convert to dict with proper serialization
+    posts_data = []
+    for post in posts:
+        post_dict = {
+            "id": post.id,
+            "brand_id": post.brand_id,
+            "platform": post.platform,
+            "content_type": post.content_type,
+            "caption": post.caption,
+            "hashtags": post.hashtags,
+            "media_urls": post.media_urls,
+            "status": post.status,
+            "scheduled_time": post.scheduled_time.isoformat() if post.scheduled_time else None,
+            "posted_time": post.posted_time.isoformat() if post.posted_time else None,
+            "post_url": post.post_url,
+            "created_at": post.created_at.isoformat() if post.created_at else None
+        }
+        posts_data.append(post_dict)
+    
+    return posts_data
 
 @app.get("/analytics/brand/{brand_id}")
 def get_brand_analytics(brand_id: int, db: Session = Depends(get_db)):
@@ -314,11 +324,11 @@ def generate_strategy(brand_id: int, db: Session = Depends(get_db)):
     }
 
 @app.post("/images/generate")
-def generate_images(request: ImageGenerate, db: Session = Depends(get_db)):
+def generate_images(brand_id: int, content_ideas: List[dict], count: int = 3, db: Session = Depends(get_db)):
     """
     Generate images for content ideas
     """
-    brand = db.query(Brand).filter(Brand.id == request.brand_id).first()
+    brand = db.query(Brand).filter(Brand.id == brand_id).first()
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
     
@@ -326,10 +336,10 @@ def generate_images(request: ImageGenerate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Brand profile not analyzed yet")
     
     generator = ImageGenerator()
-    results = generator.batch_generate(request.content_ideas, brand.brand_profile, count=request.count)
+    results = generator.batch_generate(content_ideas, brand.brand_profile, count=count)
     
     return {
-        "brand_id": request.brand_id,
+        "brand_id": brand_id,
         "generated_images": results
     }
 
@@ -370,16 +380,38 @@ def scrape_and_analyze_brand(brand_id: int, instagram_handle: str):
         db.commit()
         
         # Store analytics
-        for post in brand_data.get('posts', []):
+        for post_data in brand_data.get('posts', []):
+            # Create analytics record
             analytics = Analytics(
                 brand_id=brand_id,
                 platform="instagram",
-                likes=post.get('likes', 0),
-                comments=post.get('comments', 0),
-                engagement_rate=post.get('engagement_rate', 0),
+                likes=post_data.get('likes', 0),
+                comments=post_data.get('comments', 0),
+                engagement_rate=post_data.get('engagement_rate', 0),
                 timestamp=datetime.utcnow()
             )
             db.add(analytics)
+            
+            # Import Instagram posts as "posted" status
+            existing_post = db.query(Post).filter(
+                Post.brand_id == brand_id,
+                Post.post_url == post_data.get('url')
+            ).first()
+            
+            if not existing_post:
+                instagram_post = Post(
+                    brand_id=brand_id,
+                    platform="instagram",
+                    content_type="video" if post_data.get('is_video') else "image",
+                    caption=post_data.get('caption', '')[:500],  # Limit caption length
+                    hashtags=post_data.get('hashtags', []),
+                    media_urls=[post_data.get('media_url')] if post_data.get('media_url') else [],
+                    status="posted",
+                    posted_time=datetime.fromisoformat(post_data.get('timestamp').replace('Z', '+00:00')),
+                    post_url=post_data.get('url'),
+                    created_at=datetime.utcnow()
+                )
+                db.add(instagram_post)
         
         db.commit()
     
