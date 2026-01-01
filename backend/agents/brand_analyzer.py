@@ -14,7 +14,7 @@ class BrandAnalyzer:
         
         # Backup: Groq
         self.groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
-        self.groq_model = "llama-3.3-70b-versatile"
+        self.groq_model = "openai/gpt-oss-120b"
     
     def _generate_content(self, prompt: str) -> str:
         """
