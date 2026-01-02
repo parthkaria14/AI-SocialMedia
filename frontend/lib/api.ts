@@ -97,8 +97,9 @@ export const createPost = async (data: {
 };
 
 export const getBrandPosts = async (brandId: number, status?: string) => {
-    const params = status ? { status } : {};
-    const response = await api.get(`/posts/brand/${brandId}`, { params });
+    const response = await api.get(`/posts/brand/${brandId}`, {
+        params: status ? { status } : {},
+    });
     return response.data;
 };
 
@@ -124,9 +125,39 @@ export const generateImages = async (brandId: number, contentIdeas: any[], count
     return response.data;
 };
 
-export const generateSingleImage = async (prompt: string, width: number = 1024, height: number = 1024) => {
+export const generateSingleImage = async (prompt: string, title: string = "", width: number = 1080, height: number = 1080, addText: boolean = false, language: string = "english") => {
     const response = await api.post('/images/generate-single', null, {
-        params: { prompt, width, height },
+        params: { prompt, title, width, height, add_text: addText, language },
+    });
+    return response.data;
+};
+
+// Delete Brand
+export const deleteBrand = async (brandId: number) => {
+    const response = await api.delete(`/brands/${brandId}`);
+    return response.data;
+};
+
+// Competitor Analysis
+export const analyzeCompetitors = async (brandId: number, competitorHandles: string[]) => {
+    const response = await api.post('/competitors/analyze', {
+        brand_id: brandId,
+        competitor_handles: competitorHandles
+    });
+    return response.data;
+};
+
+export const getTrendingContent = async (competitorHandles: string[]) => {
+    const response = await api.post('/competitors/trending', {
+        competitor_handles: competitorHandles
+    });
+    return response.data;
+};
+
+// Chart Data
+export const getChartData = async (brandId: number, days: number = 30) => {
+    const response = await api.get(`/analytics/chart-data/${brandId}`, {
+        params: { days },
     });
     return response.data;
 };

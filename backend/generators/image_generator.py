@@ -1,69 +1,72 @@
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageFilter
 from io import BytesIO
 import os
 from datetime import datetime
-import time
+import textwrap
 
 class ImageGenerator:
     """
-    Generate images using free APIs
+    Generate images using free APIs with enhanced prompts and text overlays
     """
     
     def __init__(self):
         self.output_dir = "data/generated_images"
         os.makedirs(self.output_dir, exist_ok=True)
-        self.pollinations_api_key = os.getenv('POLLINATIONS_API_KEY', '')
-        self.base_url = "https://image.pollinations.ai"
     
-    def generate_with_pollinations(self, prompt, width=1024, height=1024):
+    def _create_enhanced_prompt(self, base_prompt, brand_profile, content_idea):
         """
-        Generate image using Pollinations.ai
-        Fixed to properly handle their API responses
+        Create detailed, high-quality prompt for image generation
+        """
+        visual_style = brand_profile.get('visual_style', 'modern and professional')
+        brand_voice = brand_profile.get('brand_voice', 'professional')
+        content_type = content_idea.get('content_type', 'image')
+        
+        # Enhanced prompt structure
+        style_keywords = {
+            'professional': 'corporate, clean, minimalist, high-end photography',
+            'casual': 'lifestyle, candid, natural lighting, relatable',
+            'humorous': 'playful, vibrant colors, fun, engaging',
+            'inspirational': 'dramatic lighting, aspirational, cinematic',
+            'educational': 'clean, informative, clear, organized'
+        }
+        
+        style = style_keywords.get(brand_voice, 'professional, high-quality')
+        
+        enhanced_prompt = f"""
+{base_prompt}
+Style: {style}, {visual_style}
+Quality: professional photography, 4K, sharp focus, perfect lighting, commercially viable
+Composition: rule of thirds, balanced, Instagram-worthy
+Colors: vibrant yet natural, brand-appropriate color scheme
+NO text, NO watermarks, NO logos in the image
+Commercial stock photo quality
+        """.strip()
+        
+        return enhanced_prompt
+    
+    def generate_with_pollinations(self, prompt, width=1080, height=1080, enhance=True):
+        """
+        Generate image using Pollinations.ai with enhanced prompts
         """
         try:
-            # Clean and encode prompt
-            clean_prompt = prompt.replace('\n', ' ').strip()
+            # Add quality enhancers to prompt
+            if enhance:
+                quality_terms = "professional photography, high quality, 4K resolution, sharp focus, perfect composition"
+                prompt = f"{prompt}, {quality_terms}"
             
-            # Remove any instructions about no text/watermark from prompt as it causes issues
-            clean_prompt = clean_prompt.replace('no text', '').replace('no watermark', '').strip()
-            
-            # Build URL
-            url = f"{self.base_url}/prompt/{requests.utils.quote(clean_prompt)}"
-            
+            # Pollinations API endpoint
+            url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(prompt)}"
             params = {
-                "width": str(width),
-                "height": str(height),
-                "seed": "-1",
-                "model": "flux",
+                "width": width,
+                "height": height,
                 "nologo": "true",
-                "enhance": "false",
-                "private": "false"
+                "enhance": "true"
             }
             
-            print(f"Generating image...")
-            print(f"Prompt: {clean_prompt[:100]}...")
+            response = requests.get(url, params=params, timeout=60)
             
-            # Make request with proper headers
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
-            
-            response = requests.get(
-                url,
-                params=params,
-                headers=headers,
-                timeout=120,
-                allow_redirects=True,
-                stream=True
-            )
-            
-            print(f"Status: {response.status_code}")
-            content_type = response.headers.get('content-type', '')
-            print(f"Content-Type: {content_type}")
-            
-            if response.status_code == 200 and 'image' in content_type:
-                # Load image
+            if response.status_code == 200:
                 image = Image.open(BytesIO(response.content))
                 
                 # Save image
@@ -72,206 +75,221 @@ class ImageGenerator:
                 filepath = os.path.join(self.output_dir, filename)
                 image.save(filepath)
                 
-                print(f"✅ Image saved: {filepath}")
-                
-                return {
-                    "success": True,
-                    "filepath": filepath,
-                    "url": response.url,
-                    "prompt": prompt
-                }
-            else:
-                error_msg = f"Failed: {response.status_code}, Content-Type: {content_type}"
-                if 'html' in content_type:
-                    error_msg += " (Got HTML instead of image - API might be down)"
-                print(f"❌ {error_msg}")
-                return {"success": False, "error": error_msg}
-                
-        except Exception as e:
-            print(f"❌ Exception: {e}")
-            import traceback
-            traceback.print_exc()
-            return {"success": False, "error": str(e)}
-    
-    def generate_with_huggingface(self, prompt, width=1024, height=1024):
-        """
-        Alternative: Generate using Hugging Face Inference API (free tier)
-        Model: stabilityai/stable-diffusion-2-1
-        """
-        try:
-            API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1"
-            
-            headers = {}
-            hf_token = os.getenv('HUGGINGFACE_TOKEN')
-            if hf_token:
-                headers["Authorization"] = f"Bearer {hf_token}"
-            
-            payload = {
-                "inputs": prompt,
-                "parameters": {
-                    "width": width,
-                    "height": height,
-                }
-            }
-            
-            response = requests.post(API_URL, headers=headers, json=payload, timeout=90)
-            
-            if response.status_code == 200:
-                image = Image.open(BytesIO(response.content))
-                
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"huggingface_{timestamp}.png"
-                filepath = os.path.join(self.output_dir, filename)
-                image.save(filepath)
-                
-                return {
-                    "success": True,
-                    "filepath": filepath,
-                    "prompt": prompt,
-                    "source": "huggingface"
-                }
-            else:
-                return {"success": False, "error": f"HuggingFace API error: {response.status_code}"}
-                
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-    
-    def generate_with_picsum(self, width=1080, height=1080, blur=0):
-        """
-        Get stock photos from Lorem Picsum (free)
-        Good for placeholder images
-        """
-        try:
-            url = f"https://picsum.photos/{width}/{height}"
-            if blur > 0:
-                url += f"?blur={blur}"
-            
-            response = requests.get(url, timeout=30)
-            
-            if response.status_code == 200:
-                image = Image.open(BytesIO(response.content))
-                
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"picsum_{timestamp}.jpg"
-                filepath = os.path.join(self.output_dir, filename)
-                image.save(filepath)
-                
                 return {
                     "success": True,
                     "filepath": filepath,
                     "url": url,
-                    "type": "stock_photo"
+                    "prompt": prompt,
+                    "image": image
                 }
             else:
-                return {"success": False, "error": "Failed to fetch image"}
+                return {"success": False, "error": "Failed to generate image"}
                 
         except Exception as e:
             return {"success": False, "error": str(e)}
     
-    def create_text_image(self, text, brand_profile, size=(1080, 1080), bg_color=(255, 255, 255)):
+    def add_text_overlay(self, image, text, position='bottom', brand_name=None, language='english'):
         """
-        Create simple text-based image for quotes, announcements
+        Add professional text overlay to image
+        Supports English and Hindi text
         """
         try:
-            from PIL import ImageDraw, ImageFont
+            # Create a copy to avoid modifying original
+            img = image.copy()
             
-            # Create image
-            image = Image.new('RGB', size, color=bg_color)
-            draw = ImageDraw.Draw(image)
+            # Add semi-transparent overlay for better text readability
+            overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
             
-            # Try to use a nice font, fallback to default
+            # Create gradient overlay at bottom
+            if position == 'bottom':
+                for i in range(200):
+                    alpha = int((i / 200) * 180)
+                    draw.rectangle(
+                        [(0, img.size[1] - 200 + i), (img.size[0], img.size[1] - 200 + i + 1)],
+                        fill=(0, 0, 0, alpha)
+                    )
+            elif position == 'top':
+                for i in range(200):
+                    alpha = int(((200 - i) / 200) * 180)
+                    draw.rectangle(
+                        [(0, i), (img.size[0], i + 1)],
+                        fill=(0, 0, 0, alpha)
+                    )
+            
+            # Composite overlay
+            img = Image.alpha_composite(img.convert('RGBA'), overlay)
+            draw = ImageDraw.Draw(img)
+            
+            # Load fonts
             try:
-                font = ImageFont.truetype("arial.ttf", 60)
-                small_font = ImageFont.truetype("arial.ttf", 30)
+                # Try to load better fonts
+                if language == 'hindi':
+                    # For Hindi, try to use a font that supports Devanagari
+                    try:
+                        font_large = ImageFont.truetype("arial.ttf", 70)
+                        font_small = ImageFont.truetype("arial.ttf", 40)
+                    except:
+                        font_large = ImageFont.load_default()
+                        font_small = ImageFont.load_default()
+                else:
+                    try:
+                        font_large = ImageFont.truetype("arialbd.ttf", 70)  # Bold
+                        font_small = ImageFont.truetype("arial.ttf", 40)
+                    except:
+                        try:
+                            font_large = ImageFont.truetype("Arial-Bold.ttf", 70)
+                            font_small = ImageFont.truetype("Arial.ttf", 40)
+                        except:
+                            font_large = ImageFont.load_default()
+                            font_small = ImageFont.load_default()
             except:
-                font = ImageFont.load_default()
-                small_font = ImageFont.load_default()
+                font_large = ImageFont.load_default()
+                font_small = ImageFont.load_default()
             
-            # Add text (centered)
-            # Split text into lines
+            # Wrap text to fit width
+            max_width = img.size[0] - 100
+            wrapped_lines = []
             words = text.split()
-            lines = []
             current_line = []
             
             for word in words:
                 test_line = ' '.join(current_line + [word])
-                bbox = draw.textbbox((0, 0), test_line, font=font)
-                if bbox[2] - bbox[0] < size[0] - 100:
+                bbox = draw.textbbox((0, 0), test_line, font=font_large)
+                if bbox[2] - bbox[0] < max_width:
                     current_line.append(word)
                 else:
-                    lines.append(' '.join(current_line))
+                    if current_line:
+                        wrapped_lines.append(' '.join(current_line))
                     current_line = [word]
-            lines.append(' '.join(current_line))
             
-            # Calculate position
-            total_height = len(lines) * 80
-            y = (size[1] - total_height) // 2
+            if current_line:
+                wrapped_lines.append(' '.join(current_line))
             
-            for line in lines:
-                bbox = draw.textbbox((0, 0), line, font=font)
+            # Limit to 3 lines
+            wrapped_lines = wrapped_lines[:3]
+            
+            # Calculate text position
+            if position == 'bottom':
+                y_start = img.size[1] - 180 - (len(wrapped_lines) * 80)
+            else:
+                y_start = 50
+            
+            # Draw text with shadow for better readability
+            for i, line in enumerate(wrapped_lines):
+                bbox = draw.textbbox((0, 0), line, font=font_large)
                 text_width = bbox[2] - bbox[0]
-                x = (size[0] - text_width) // 2
-                draw.text((x, y), line, fill=(0, 0, 0), font=font)
-                y += 80
+                x = (img.size[0] - text_width) // 2
+                y = y_start + (i * 80)
+                
+                # Shadow
+                draw.text((x + 3, y + 3), line, fill=(0, 0, 0, 200), font=font_large)
+                # Main text
+                draw.text((x, y), line, fill=(255, 255, 255, 255), font=font_large)
             
-            # Add brand name at bottom
-            brand_name = brand_profile.get('username', 'Brand')
-            bbox = draw.textbbox((0, 0), f"@{brand_name}", font=small_font)
-            brand_width = bbox[2] - bbox[0]
-            draw.text(((size[0] - brand_width) // 2, size[1] - 100), 
-                     f"@{brand_name}", fill=(128, 128, 128), font=small_font)
+            # Add brand name if provided
+            if brand_name:
+                brand_text = f"@{brand_name}"
+                bbox = draw.textbbox((0, 0), brand_text, font=font_small)
+                brand_width = bbox[2] - bbox[0]
+                brand_x = (img.size[0] - brand_width) // 2
+                brand_y = img.size[1] - 60 if position == 'bottom' else y_start + len(wrapped_lines) * 80 + 20
+                
+                # Shadow
+                draw.text((brand_x + 2, brand_y + 2), brand_text, fill=(0, 0, 0, 200), font=font_small)
+                # Main text
+                draw.text((brand_x, brand_y), brand_text, fill=(200, 200, 200, 255), font=font_small)
             
-            # Save
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"text_{timestamp}.png"
-            filepath = os.path.join(self.output_dir, filename)
-            image.save(filepath)
+            # Convert back to RGB
+            img = img.convert('RGB')
             
-            return {
-                "success": True,
-                "filepath": filepath,
-                "type": "text_image"
-            }
+            return img
             
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            print(f"Error adding text overlay: {e}")
+            return image.convert('RGB')
     
-    def generate_social_post_image(self, content_idea, brand_profile):
+    def generate_social_post_image(self, content_idea, brand_profile, add_text=True, language='english'):
         """
-        Generate image based on content idea and brand profile
-        Tries Pollinations first, falls back to HuggingFace if needed
+        Generate high-quality image for social media post with optional text overlay
         """
-        # Create detailed prompt from content idea
         title = content_idea.get('title', '')
         description = content_idea.get('description', '')
         brand_voice = brand_profile.get('brand_voice', 'professional')
         visual_style = brand_profile.get('visual_style', 'modern')
+        brand_name = brand_profile.get('username', '')
         
-        prompt = f"{title}. {description}. Style: {visual_style}, {brand_voice}, high quality, professional photography, Instagram worthy, no text, no watermark"
+        # Create highly detailed prompt
+        base_prompt = f"{description}"
+        enhanced_prompt = self._create_enhanced_prompt(base_prompt, brand_profile, content_idea)
         
-        # Try Pollinations first
-        result = self.generate_with_pollinations(prompt)
+        # Generate base image
+        result = self.generate_with_pollinations(enhanced_prompt, width=1080, height=1080)
         
-        # If Pollinations fails, try HuggingFace
-        if not result.get('success'):
-            print("Pollinations failed, trying HuggingFace...")
-            result = self.generate_with_huggingface(prompt)
-        
-        # If both fail, create a text-based image
-        if not result.get('success'):
-            print("All image generation failed, creating text image...")
-            result = self.create_text_image(title, brand_profile)
+        if result.get('success') and add_text and result.get('image'):
+            # Add text overlay
+            image_with_text = self.add_text_overlay(
+                result['image'],
+                title,
+                position='bottom',
+                brand_name=brand_name,
+                language=language
+            )
+            
+            # Save the image with text
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"post_{timestamp}.png"
+            filepath = os.path.join(self.output_dir, filename)
+            image_with_text.save(filepath, quality=95)
+            
+            result['filepath'] = filepath
+            result['has_text_overlay'] = True
         
         return result
     
-    def batch_generate(self, content_ideas, brand_profile, count=5):
+    def generate_from_custom_prompt(self, custom_prompt, brand_profile, title=None, add_text=True, language='english'):
         """
-        Generate multiple images for content ideas
+        Generate image from custom user prompt with enhancements
+        """
+        brand_voice = brand_profile.get('brand_voice', 'professional')
+        brand_name = brand_profile.get('username', '')
+        
+        # Enhance custom prompt
+        content_idea = {'content_type': 'image'}
+        enhanced_prompt = self._create_enhanced_prompt(custom_prompt, brand_profile, content_idea)
+        
+        # Generate image
+        result = self.generate_with_pollinations(enhanced_prompt, width=1080, height=1080)
+        
+        if result.get('success') and add_text and title and result.get('image'):
+            # Add text overlay
+            image_with_text = self.add_text_overlay(
+                result['image'],
+                title,
+                position='bottom',
+                brand_name=brand_name,
+                language=language
+            )
+            
+            # Save
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"custom_{timestamp}.png"
+            filepath = os.path.join(self.output_dir, filename)
+            image_with_text.save(filepath, quality=95)
+            
+            result['filepath'] = filepath
+            result['has_text_overlay'] = True
+        
+        return result
+    
+    def batch_generate(self, content_ideas, brand_profile, count=5, add_text=True, language='english'):
+        """
+        Generate multiple high-quality images for content ideas
         """
         results = []
         
         for i, idea in enumerate(content_ideas[:count]):
-            result = self.generate_social_post_image(idea, brand_profile)
+            result = self.generate_social_post_image(idea, brand_profile, add_text=add_text, language=language)
             result['content_idea'] = idea.get('title', f'Idea {i+1}')
             results.append(result)
         
@@ -282,37 +300,19 @@ class ImageGenerator:
 if __name__ == "__main__":
     generator = ImageGenerator()
     
-    # Test 1: Pollinations with retry
-    print("=" * 60)
-    print("Testing Pollinations.ai Image Generation")
-    print("=" * 60)
+    # Test enhanced generation
+    print("Testing enhanced image generation...")
+    brand_profile = {
+        "username": "testbrand",
+        "brand_voice": "professional",
+        "visual_style": "modern minimalist"
+    }
     
-    test_prompt = "A modern minimalist product photography of a sleek laptop on a clean white desk, professional lighting, high quality, 4k"
+    content_idea = {
+        "title": "Summer Collection 2024",
+        "description": "Vibrant summer fashion collection with floral patterns",
+        "content_type": "image"
+    }
     
-    print(f"\nPrompt: {test_prompt}\n")
-    
-    result1 = generator.generate_with_pollinations(test_prompt, 1024, 1024)
-    print(f"\nResult: {result1}")
-    
-    if not result1.get('success'):
-        print("\n⚠️  Pollinations failed, trying HuggingFace...")
-        result2 = generator.generate_with_huggingface(test_prompt, 1024, 1024)
-        print(f"HuggingFace Result: {result2}")
-    
-    # Test 2: Stock photo
-    print("\n" + "=" * 60)
-    print("Testing Lorem Picsum (Stock Photos)")
-    print("=" * 60)
-    result3 = generator.generate_with_picsum(1080, 1080)
-    print(f"Result: {result3}")
-    
-    # Test 3: Text image
-    print("\n" + "=" * 60)
-    print("Testing Text Image Generation")
-    print("=" * 60)
-    brand_profile = {"username": "testbrand"}
-    result4 = generator.create_text_image(
-        "Your Success Is Our Mission",
-        brand_profile
-    )
-    print(f"Result: {result4}")
+    result = generator.generate_social_post_image(content_idea, brand_profile, add_text=True)
+    print(f"Result: {result}")

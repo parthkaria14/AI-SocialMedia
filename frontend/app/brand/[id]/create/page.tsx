@@ -13,7 +13,6 @@ export default function CreatePostPage() {
     const brandId = parseInt(params.id as string);
 
     const [brand, setBrand] = useState<any>(null);
-    const [contentIdea, setContentIdea] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
     const [generatingImage, setGeneratingImage] = useState(false);
@@ -26,46 +25,15 @@ export default function CreatePostPage() {
         hashtags: [] as string[],
         scheduledTime: '',
         imagePrompt: '',
+        imageTitle: '',
         generatedImageUrl: '',
+        addTextOverlay: true,
+        language: 'english',
     });
 
     useEffect(() => {
         loadBrand();
-        loadContentIdea();
     }, [brandId]);
-
-    const loadContentIdea = () => {
-        const ideaParam = searchParams.get('idea');
-        if (ideaParam) {
-            try {
-                const idea = JSON.parse(decodeURIComponent(ideaParam));
-                setContentIdea(idea);
-
-                // Auto-fill form with content idea
-                setFormData(prev => ({
-                    ...prev,
-                    contentType: idea.content_type || 'image',
-                    caption: idea.caption_hook || '',
-                    hashtags: idea.hashtag_suggestions || [],
-                    imagePrompt: `${idea.title}. ${idea.description}`,
-                }));
-
-                // Auto-generate full caption
-                setTimeout(() => {
-                    handleGenerateCaption(idea);
-                }, 500);
-
-                // Auto-generate image if it's image type
-                if (idea.content_type === 'image') {
-                    setTimeout(() => {
-                        handleGenerateImage(`${idea.title}. ${idea.description}`);
-                    }, 1000);
-                }
-            } catch (error) {
-                console.error('Failed to parse content idea:', error);
-            }
-        }
-    };
 
     const loadBrand = async () => {
         try {
@@ -78,50 +46,53 @@ export default function CreatePostPage() {
         }
     };
 
-    const handleGenerateCaption = async (ideaToUse?: any) => {
+    const handleGenerateCaption = async () => {
         setGenerating(true);
         try {
-            const contentIdeaData = ideaToUse || contentIdea || {
+            const contentIdea = {
                 title: 'Custom Post',
                 description: formData.imagePrompt || 'Create engaging social media content',
                 content_type: formData.contentType,
             };
 
-            const result = await generateCaption(brandId, contentIdeaData, formData.platform);
-            setFormData(prev => ({
-                ...prev,
+            const result = await generateCaption(brandId, contentIdea, formData.platform);
+            setFormData({
+                ...formData,
                 caption: result.caption,
-                hashtags: result.hashtags || prev.hashtags,
-            }));
+                hashtags: result.hashtags || [],
+            });
         } catch (error) {
-            console.error('Failed to generate caption:', error);
             alert('Failed to generate caption');
         } finally {
             setGenerating(false);
         }
     };
 
-    const handleGenerateImage = async (promptOverride?: string) => {
-        const prompt = promptOverride || formData.imagePrompt;
-
-        if (!prompt) {
-            alert('Please enter an image prompt');
+    const handleGenerateImage = async () => {
+        if (!formData.imagePrompt) {
+            alert('Please enter an image description');
             return;
         }
 
         setGeneratingImage(true);
         try {
-            const result = await generateSingleImage(prompt, 1080, 1080);
+            const result = await generateSingleImage(
+                formData.imagePrompt,
+                formData.imageTitle,
+                1080,
+                1080,
+                formData.addTextOverlay,
+                formData.language
+            );
             if (result.success) {
-                setFormData(prev => ({
-                    ...prev,
+                setFormData({
+                    ...formData,
                     generatedImageUrl: result.url,
-                }));
+                });
             } else {
                 alert('Failed to generate image: ' + result.error);
             }
         } catch (error) {
-            console.error('Failed to generate image:', error);
             alert('Failed to generate image');
         } finally {
             setGeneratingImage(false);
@@ -186,54 +157,6 @@ export default function CreatePostPage() {
 
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Content Idea Banner */}
-                {contentIdea && (
-                    <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <h2 className="text-xl font-bold text-gray-900 mb-2">
-                                    📝 {contentIdea.title}
-                                </h2>
-                                <p className="text-gray-700 mb-3">{contentIdea.description}</p>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
-                                        {contentIdea.content_type}
-                                    </span>
-                                    {contentIdea.hashtag_suggestions?.slice(0, 3).map((tag: string, idx: number) => (
-                                        <span key={idx} className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full">
-                                            #{tag}
-                                        </span>
-                                    ))}
-                                </div>
-                                {(generating || generatingImage) && (
-                                    <div className="mt-3 flex items-center gap-2 text-sm text-blue-600">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                        {generating && 'Generating caption...'}
-                                        {generatingImage && 'Generating image...'}
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => {
-                                    setContentIdea(null);
-                                    setFormData({
-                                        platform: 'instagram',
-                                        contentType: 'image',
-                                        caption: '',
-                                        hashtags: [],
-                                        scheduledTime: '',
-                                        imagePrompt: '',
-                                        generatedImageUrl: '',
-                                    });
-                                }}
-                                className="text-gray-400 hover:text-gray-600"
-                            >
-                                <span className="text-2xl">×</span>
-                            </button>
-                        </div>
-                    </div>
-                )}
-
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Left Column - Form */}
                     <div className="space-y-6">
@@ -256,46 +179,110 @@ export default function CreatePostPage() {
                             </div>
                         </div>
 
-                        {/* Content Type */}
+                        {/* Content Type - Removed for now, default to image */}
                         <div className="bg-white rounded-lg shadow p-6">
                             <h3 className="font-semibold text-gray-900 mb-4">Content Type</h3>
-                            <div className="flex gap-3">
-                                {['image', 'video', 'text'].map((type) => (
-                                    <button
-                                        key={type}
-                                        onClick={() => setFormData({ ...formData, contentType: type })}
-                                        className={`px-4 py-2 rounded-lg capitalize transition ${formData.contentType === type
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                            }`}
-                                    >
-                                        {type}
-                                    </button>
-                                ))}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p className="text-sm text-blue-800">
+                                    <strong>Image Posts Only</strong> - Currently supporting high-quality image generation with AI. Video support coming soon!
+                                </p>
                             </div>
                         </div>
 
                         {/* Image Generation */}
-                        {formData.contentType === 'image' && (
-                            <div className="bg-white rounded-lg shadow p-6">
-                                <h3 className="font-semibold text-gray-900 mb-4">Generate Image</h3>
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="font-semibold text-gray-900 mb-4">Generate AI Image</h3>
+
+                            {/* Image Title */}
+                            <div className="mb-3">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Image Title (for text overlay)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.imageTitle}
+                                    onChange={(e) => setFormData({ ...formData, imageTitle: e.target.value })}
+                                    placeholder="e.g., Summer Sale 2024, New Collection"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                            </div>
+
+                            {/* Image Description */}
+                            <div className="mb-3">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Image Description
+                                </label>
                                 <textarea
                                     value={formData.imagePrompt}
                                     onChange={(e) => setFormData({ ...formData, imagePrompt: e.target.value })}
-                                    placeholder="Describe the image you want to generate..."
+                                    placeholder="Describe what you want in the image: e.g., A vibrant summer fashion collection with floral patterns, bright colors, outdoor lifestyle setting"
                                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                    rows={3}
+                                    rows={4}
                                 />
-                                <button
-                                    onClick={() => handleGenerateImage()}
-                                    disabled={generatingImage}
-                                    className="mt-3 w-full flex items-center justify-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
-                                >
-                                    <ImageIcon className="w-4 h-4" />
-                                    {generatingImage ? 'Generating...' : 'Generate Image'}
-                                </button>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Be specific: mention colors, style, setting, mood, and key elements
+                                </p>
                             </div>
-                        )}
+
+                            {/* Text Overlay Options */}
+                            <div className="mb-3 flex items-center gap-4">
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.addTextOverlay}
+                                        onChange={(e) => setFormData({ ...formData, addTextOverlay: e.target.checked })}
+                                        className="w-4 h-4 text-blue-600"
+                                    />
+                                    <span className="text-sm text-gray-700">Add text overlay to image</span>
+                                </label>
+                            </div>
+
+                            {/* Language Selection */}
+                            {formData.addTextOverlay && (
+                                <div className="mb-3">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Text Language
+                                    </label>
+                                    <div className="flex gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, language: 'english' })}
+                                            className={`px-4 py-2 rounded-lg transition ${formData.language === 'english'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                }`}
+                                        >
+                                            English
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, language: 'hindi' })}
+                                            className={`px-4 py-2 rounded-lg transition ${formData.language === 'hindi'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                }`}
+                                        >
+                                            हिंदी (Hindi)
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <button
+                                onClick={handleGenerateImage}
+                                disabled={generatingImage}
+                                className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+                            >
+                                <ImageIcon className="w-5 h-5" />
+                                {generatingImage ? 'Generating High-Quality Image...' : 'Generate AI Image'}
+                            </button>
+
+                            {generatingImage && (
+                                <p className="text-sm text-gray-600 text-center mt-2">
+                                    This may take 15-30 seconds for best quality...
+                                </p>
+                            )}
+                        </div>
 
                         {/* Caption */}
                         <div className="bg-white rounded-lg shadow p-6">

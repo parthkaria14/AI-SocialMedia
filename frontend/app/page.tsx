@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getBrands, type Brand } from '@/lib/api';
-import { ensureString, truncate } from '@/lib/helpers';
-import { Plus, TrendingUp, Users, FileText } from 'lucide-react';
+import { getBrands, deleteBrand, type Brand } from '@/lib/api';
+import { Plus, TrendingUp, Users, FileText, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import CreateBrandModal from '@/components/CreateBrandModal';
 
@@ -30,6 +29,19 @@ export default function Dashboard() {
   const handleBrandCreated = () => {
     setShowCreateModal(false);
     loadBrands();
+  };
+
+  const handleDeleteBrand = async (brandId: number, brandName: string) => {
+    if (!confirm(`Are you sure you want to delete "${brandName}"? This will delete all posts, analytics, and strategies.`)) {
+      return;
+    }
+
+    try {
+      await deleteBrand(brandId);
+      loadBrands();
+    } catch (error) {
+      alert('Failed to delete brand');
+    }
   };
 
   if (loading) {
@@ -123,54 +135,78 @@ export default function Dashboard() {
             {/* Brands Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {brands.map((brand) => (
-                <Link
+                <div
                   key={brand.id}
-                  href={`/brand/${brand.id}`}
-                  className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition cursor-pointer"
+                  className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition relative"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900">
-                        {brand.name}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        @{brand.instagram_handle}
-                      </p>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDeleteBrand(brand.id, brand.name);
+                    }}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition"
+                    title="Delete brand"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+
+                  <Link href={`/brand/${brand.id}`} className="block">
+                    <div className="flex items-start justify-between mb-4 pr-8">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900">
+                          {brand.name}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          @{brand.instagram_handle}
+                        </p>
+                      </div>
+                      {brand.brand_profile ? (
+                        <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
+                          Analyzing
+                        </span>
+                      )}
                     </div>
-                    {brand.brand_profile ? (
-                      <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                        Active
-                      </span>
-                    ) : (
-                      <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
-                        Analyzing
-                      </span>
+
+                    {brand.brand_profile && (
+                      <div className="space-y-2">
+                        <div className="text-sm">
+                          <span className="text-gray-600">Voice:</span>
+                          <span className="ml-2 font-medium capitalize">
+                            {brand.brand_profile.brand_voice || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-gray-600">Audience:</span>
+                          <span className="ml-2 font-medium">
+                            {(() => {
+                              const audience = brand.brand_profile.target_audience;
+                              if (typeof audience === 'string') {
+                                return audience.slice(0, 40);
+                              } else if (audience && typeof audience === 'object') {
+                                // Handle object case (demographics, interests)
+                                const demo = audience.demographics || '';
+                                const interests = audience.interests || '';
+                                const text = demo || interests || 'Various audiences';
+                                return typeof text === 'string' ? text.slice(0, 40) : 'Various audiences';
+                              }
+                              return 'N/A';
+                            })()}...
+                          </span>
+                        </div>
+                      </div>
                     )}
-                  </div>
 
-                  {brand.brand_profile && (
-                    <div className="space-y-2">
-                      <div className="text-sm">
-                        <span className="text-gray-600">Voice:</span>
-                        <span className="ml-2 font-medium capitalize">
-                          {brand.brand_profile.brand_voice || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-gray-600">Audience:</span>
-                        <span className="ml-2 font-medium">
-                          {truncate(ensureString(brand.brand_profile.target_audience), 40)}
-                        </span>
-                      </div>
+                    <div className="mt-4 pt-4 border-t">
+                      <span className="text-blue-600 hover:text-blue-700 font-medium text-sm">
+                        Manage Brand →
+                      </span>
                     </div>
-                  )}
-
-                  <div className="mt-4 pt-4 border-t">
-                    <button className="text-blue-600 hover:text-blue-700 font-medium text-sm">
-                      Manage Brand →
-                    </button>
-                  </div>
-                </Link>
+                  </Link>
+                </div>
               ))}
             </div>
           </>
