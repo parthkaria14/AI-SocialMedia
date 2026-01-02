@@ -1,4 +1,5 @@
 import google.generativeai as genai
+from groq import Groq
 import os
 import json
 from dotenv import load_dotenv
@@ -7,8 +8,48 @@ load_dotenv()
 
 class BrandAnalyzer:
     def __init__(self):
+        # Primary: Gemini
         genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
         self.model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        # Backup: Groq
+        self.groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
+        self.groq_model = "openai/gpt-oss-120b"
+    
+    def _generate_content(self, prompt: str) -> str:
+        """
+        Generate content using Gemini with Groq fallback.
+        Returns the raw text response.
+        """
+        # Try Gemini first
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as gemini_error:
+            print(f"Gemini failed: {gemini_error}. Falling back to Groq...")
+        
+        # Fallback to Groq
+        try:
+            response = self.groq_client.chat.completions.create(
+                model=self.groq_model,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=4096
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as groq_error:
+            print(f"Groq also failed: {groq_error}")
+            raise Exception(f"Both Gemini and Groq failed. Gemini: {gemini_error}, Groq: {groq_error}")
+    
+    def _parse_json_response(self, result: str):
+        """Parse JSON from AI response, handling markdown code blocks."""
+        if result.startswith('```json'):
+            result = result[7:-3]
+        elif result.startswith('```'):
+            result = result[3:-3]
+        return json.loads(result)
     
     def analyze_brand_profile(self, brand_data):
         """
@@ -50,15 +91,8 @@ Return ONLY valid JSON, no markdown formatting.
 """
         
         try:
-            response = self.model.generate_content(prompt)
-            # Clean response and parse JSON
-            result = response.text.strip()
-            if result.startswith('```json'):
-                result = result[7:-3]
-            elif result.startswith('```'):
-                result = result[3:-3]
-            
-            brand_profile = json.loads(result)
+            result = self._generate_content(prompt)
+            brand_profile = self._parse_json_response(result)
             return brand_profile
         except Exception as e:
             print(f"Error analyzing brand: {e}")
@@ -106,14 +140,8 @@ Return ONLY valid JSON array, no markdown.
 """
         
         try:
-            response = self.model.generate_content(prompt)
-            result = response.text.strip()
-            if result.startswith('```json'):
-                result = result[7:-3]
-            elif result.startswith('```'):
-                result = result[3:-3]
-            
-            ideas = json.loads(result)
+            result = self._generate_content(prompt)
+            ideas = self._parse_json_response(result)
             return ideas
         except Exception as e:
             print(f"Error generating ideas: {e}")
@@ -121,49 +149,84 @@ Return ONLY valid JSON array, no markdown.
     
     def generate_caption(self, brand_profile, content_idea, platform="instagram"):
         """
-        Generate caption for a specific content piece
+        Generate platform-optimized caption for a specific content piece
         """
+        # Platform-specific guidelines
+        platform_guidelines = {
+            "instagram": {
+                "max_length": 2200,
+                "style": "Visual storytelling with emojis, 3-5 paragraphs, engaging hooks, call-to-action",
+                "hashtags": "15-30 relevant hashtags",
+                "format": "Hook + Story + CTA + Hashtags",
+                "emojis": "Use emojis strategically for visual appeal"
+            },
+            "twitter": {
+                "max_length": 280,
+                "style": "Concise, punchy, conversational, trending topics",
+                "hashtags": "1-3 hashtags maximum",
+                "format": "Short impactful message + 1-2 hashtags",
+                "emojis": "Use sparingly, focus on text impact"
+            },
+            "linkedin": {
+                "max_length": 3000,
+                "style": "Professional, thought leadership, industry insights, value-driven",
+                "hashtags": "3-5 professional hashtags",
+                "format": "Professional insight + Key takeaways + Industry hashtags",
+                "emojis": "Minimal, professional use only"
+            }
+        }
+        
+        guidelines = platform_guidelines.get(platform.lower(), platform_guidelines["instagram"])
+        
         prompt = f"""
-Write a {platform} caption based on:
+Write a {platform.upper()}-optimized caption based on:
 
 BRAND VOICE: {brand_profile.get('brand_voice')}
 TARGET AUDIENCE: {brand_profile.get('target_audience')}
 CONTENT IDEA: {content_idea.get('description')}
+CONTENT TITLE: {content_idea.get('title')}
 
-Requirements:
-- Match the brand voice perfectly
-- Include engaging hook
-- 2-3 paragraphs
-- Call-to-action
-- 5-8 relevant hashtags
-- Emojis if appropriate for brand
+{platform.upper()} SPECIFIC REQUIREMENTS:
+- Maximum Length: {guidelines['max_length']} characters
+- Style: {guidelines['style']}
+- Hashtag Strategy: {guidelines['hashtags']}
+- Format: {guidelines['format']}
+- Emoji Usage: {guidelines['emojis']}
+
+PLATFORM-SPECIFIC GUIDELINES:
+{"Instagram: Create visually engaging multi-paragraph story with strong hook, emotional connection, and clear CTA. Use line breaks for readability." if platform == "instagram" else ""}
+{"Twitter: Be concise and impactful. Every word counts. Make it shareable and conversation-starting. Focus on one key message." if platform == "twitter" else ""}
+{"LinkedIn: Position as thought leadership. Share professional insights, industry trends, or valuable lessons. Be authoritative yet approachable." if platform == "linkedin" else ""}
 
 Return as JSON:
 {{
-  "caption": "full caption text",
+  "caption": "platform-optimized caption text",
   "hashtags": ["tag1", "tag2"],
-  "cta": "call to action"
+  "cta": "call to action",
+  "character_count": count,
+  "platform_notes": "why this works for {platform}"
 }}
+
+IMPORTANT: 
+- For Twitter, keep TOTAL length (caption + hashtags) under 280 characters
+- For Instagram, use 2200 character limit effectively
+- For LinkedIn, focus on professional value and insights
 
 Return ONLY valid JSON, no markdown.
 """
         
         try:
-            response = self.model.generate_content(prompt)
-            result = response.text.strip()
-            if result.startswith('```json'):
-                result = result[7:-3]
-            elif result.startswith('```'):
-                result = result[3:-3]
-            
-            caption_data = json.loads(result)
+            result = self._generate_content(prompt)
+            caption_data = self._parse_json_response(result)
+            caption_data['platform'] = platform
             return caption_data
         except Exception as e:
             print(f"Error generating caption: {e}")
             return {
                 "caption": content_idea.get('caption_hook', ''),
                 "hashtags": content_idea.get('hashtag_suggestions', []),
-                "cta": "Check it out!"
+                "cta": "Check it out!",
+                "platform": platform
             }
     
     def analyze_performance(self, posts_analytics):
@@ -209,14 +272,8 @@ Return ONLY valid JSON, no markdown.
 """
         
         try:
-            response = self.model.generate_content(prompt)
-            result = response.text.strip()
-            if result.startswith('```json'):
-                result = result[7:-3]
-            elif result.startswith('```'):
-                result = result[3:-3]
-            
-            analysis = json.loads(result)
+            result = self._generate_content(prompt)
+            analysis = self._parse_json_response(result)
             return analysis
         except Exception as e:
             print(f"Error analyzing performance: {e}")

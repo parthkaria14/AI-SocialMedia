@@ -27,16 +27,13 @@ app.add_middleware(
 )
 
 # Mount static files for generated images
-# This allows frontend to access images via /generated_images/filename.png
-if os.path.exists("data/generated_images"):
-    app.mount("/generated_images", StaticFiles(directory="data/generated_images"), name="generated_images")
+os.makedirs("data/generated_images", exist_ok=True)
+app.mount("/generated_images", StaticFiles(directory="data/generated_images"), name="generated_images")
 
 # Initialize DB on startup
 @app.on_event("startup")
 def startup_event():
     init_db()
-    # Ensure images directory exists
-    os.makedirs("data/generated_images", exist_ok=True)
 
 # Pydantic Models
 class BrandCreate(BaseModel):
@@ -59,6 +56,10 @@ class PostCreate(BaseModel):
     media_urls: Optional[List[str]] = None
     scheduled_time: Optional[str] = None
 
+class MultiplatformCaptionRequest(BaseModel):
+    brand_id: int
+    content_idea: dict
+
 class CompetitorAnalysisRequest(BaseModel):
     brand_id: int
     competitor_handles: List[str]
@@ -76,7 +77,6 @@ def root():
         "status": "running"
     }
 
-# Image serving endpoint
 @app.get("/api/images/{filename}")
 async def serve_image(filename: str):
     """
@@ -191,7 +191,7 @@ def generate_content(request: ContentGenerate, db: Session = Depends(get_db)):
 @app.post("/content/caption")
 def generate_caption(brand_id: int, content_idea: dict, platform: str = "instagram", db: Session = Depends(get_db)):
     """
-    Generate caption for specific content idea
+    Generate platform-optimized caption for specific content idea
     """
     brand = db.query(Brand).filter(Brand.id == brand_id).first()
     if not brand:
@@ -205,6 +205,32 @@ def generate_caption(brand_id: int, content_idea: dict, platform: str = "instagr
     )
     
     return caption_data
+
+@app.post("/content/caption-multiplatform")
+def generate_multiplatform_captions(brand_id: int, content_idea: dict, platforms: List[str] = ["instagram", "twitter", "linkedin"], db: Session = Depends(get_db)):
+    """
+    Generate captions optimized for multiple platforms at once
+    """
+    brand = db.query(Brand).filter(Brand.id == brand_id).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    
+    analyzer = BrandAnalyzer()
+    captions = {}
+    
+    for platform in platforms:
+        caption_data = analyzer.generate_caption(
+            brand.brand_profile,
+            content_idea,
+            platform=platform
+        )
+        captions[platform] = caption_data
+    
+    return {
+        "brand_id": brand_id,
+        "content_idea": content_idea.get('title', 'Untitled'),
+        "captions": captions
+    }
 
 @app.post("/posts/")
 def create_post(post: PostCreate, db: Session = Depends(get_db)):
@@ -334,9 +360,9 @@ def generate_strategy(brand_id: int, db: Session = Depends(get_db)):
     }
 
 @app.post("/images/generate")
-def generate_images(brand_id: int, content_ideas: List[dict], count: int = 3, db: Session = Depends(get_db)):
+def generate_images(brand_id: int, content_ideas: List[dict], count: int = 3, add_text: bool = True, language: str = "english", db: Session = Depends(get_db)):
     """
-    Generate images for content ideas
+    Generate images for content ideas with enhanced quality and text overlays
     """
     brand = db.query(Brand).filter(Brand.id == brand_id).first()
     if not brand:
@@ -349,12 +375,7 @@ def generate_images(brand_id: int, content_ideas: List[dict], count: int = 3, db
     brand.brand_profile['username'] = brand.instagram_handle
     
     generator = ImageGenerator()
-    results = generator.batch_generate(content_ideas, brand.brand_profile, count=count)
-    
-    # Update results with proper local URLs
-    for result in results:
-        if result.get('success') and result.get('filename'):
-            result['url'] = f"/api/images/{result['filename']}"
+    results = generator.batch_generate(content_ideas, brand.brand_profile, count=count, add_text=add_text, language=language)
     
     return {
         "brand_id": brand_id,
@@ -364,18 +385,25 @@ def generate_images(brand_id: int, content_ideas: List[dict], count: int = 3, db
 @app.post("/images/generate-single")
 def generate_single_image(prompt: str, title: str = "", width: int = 1080, height: int = 1080, add_text: bool = False, language: str = "english"):
     """
-    Generate single image from custom prompt
+    Generate single image from custom prompt with optional text overlay
     """
     generator = ImageGenerator()
     
-    # Generate image with Pollinations (saves locally)
-    result = generator.generate_with_pollinations(prompt, width, height)
+    # Create minimal brand profile for generation
+    brand_profile = {
+        "brand_voice": "professional",
+        "visual_style": "modern",
+        "username": ""
+    }
     
-    # Return local URL instead of external Pollinations URL
+    if add_text and title:
+        result = generator.generate_from_custom_prompt(prompt, brand_profile, title=title, add_text=True, language=language)
+    else:
+        result = generator.generate_with_pollinations(prompt, width, height)
+    
+    # Return proper URL for frontend
     if result.get('success') and result.get('filename'):
         result['url'] = f"/api/images/{result['filename']}"
-        # Remove the external Pollinations URL
-        result.pop('filepath', None)
     
     return result
 

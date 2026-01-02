@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { getBrand, generateCaption, generateSingleImage, createPost } from '@/lib/api';
-import { ArrowLeft, Wand2, Image as ImageIcon, Calendar } from 'lucide-react';
+import { getBrand, generateCaption, generateMultiplatformCaptions, generateSingleImage, createPost } from '@/lib/api';
+import { ArrowLeft, Wand2, Image as ImageIcon, Calendar, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CreatePostPage() {
@@ -17,6 +17,10 @@ export default function CreatePostPage() {
     const [generating, setGenerating] = useState(false);
     const [generatingImage, setGeneratingImage] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [multiPlatformCaptions, setMultiPlatformCaptions] = useState<any>(null);
+    const [showMultiPlatform, setShowMultiPlatform] = useState(false);
+    const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null);
+    const [copiedCaption, setCopiedCaption] = useState(false);
 
     const [formData, setFormData] = useState({
         platform: 'instagram',
@@ -27,8 +31,6 @@ export default function CreatePostPage() {
         imagePrompt: '',
         imageTitle: '',
         generatedImageUrl: '',
-        addTextOverlay: true,
-        language: 'english',
     });
 
     useEffect(() => {
@@ -68,7 +70,7 @@ export default function CreatePostPage() {
         setGenerating(true);
         try {
             const contentIdea = {
-                title: 'Custom Post',
+                title: formData.imageTitle || 'Custom Post',
                 description: formData.imagePrompt || 'Create engaging social media content',
                 content_type: formData.contentType,
             };
@@ -86,6 +88,43 @@ export default function CreatePostPage() {
         }
     };
 
+    const handleGenerateMultiPlatform = async () => {
+        setGenerating(true);
+        try {
+            const contentIdea = {
+                title: formData.imageTitle || 'Custom Post',
+                description: formData.imagePrompt || 'Create engaging social media content',
+                content_type: formData.contentType,
+            };
+
+            const result = await generateMultiplatformCaptions(brandId, contentIdea);
+            setMultiPlatformCaptions(result.captions);
+            setShowMultiPlatform(true);
+        } catch (error) {
+            alert('Failed to generate multi-platform captions');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    const handleCopyCaption = (platform: string, caption: string, hashtags: string[]) => {
+        const fullText = `${caption}\n\n${hashtags.map(tag => `#${tag}`).join(' ')}`;
+        navigator.clipboard.writeText(fullText);
+        setCopiedPlatform(platform);
+        setTimeout(() => setCopiedPlatform(null), 2000);
+    };
+
+    const handleUsePlatformCaption = (platform: string) => {
+        const captionData = multiPlatformCaptions[platform];
+        setFormData({
+            ...formData,
+            platform: platform,
+            caption: captionData.caption,
+            hashtags: captionData.hashtags || [],
+        });
+        setShowMultiPlatform(false);
+    };
+
     const handleGenerateImage = async () => {
         if (!formData.imagePrompt) {
             alert('Please enter an image description');
@@ -98,9 +137,7 @@ export default function CreatePostPage() {
                 formData.imagePrompt,
                 formData.imageTitle,
                 1080,
-                1080,
-                formData.addTextOverlay,
-                formData.language
+                1080
             );
             if (result.success) {
                 setFormData({
@@ -182,19 +219,42 @@ export default function CreatePostPage() {
                         {/* Platform Selection */}
                         <div className="bg-white rounded-lg shadow p-6">
                             <h3 className="font-semibold text-gray-900 mb-4">Platform</h3>
-                            <div className="flex gap-3">
+                            <div className="grid grid-cols-3 gap-3 mb-3">
                                 {['instagram', 'twitter', 'linkedin'].map((platform) => (
                                     <button
                                         key={platform}
                                         onClick={() => setFormData({ ...formData, platform })}
-                                        className={`px-4 py-2 rounded-lg capitalize transition ${formData.platform === platform
-                                            ? 'bg-blue-600 text-white'
+                                        className={`px-4 py-3 rounded-lg capitalize transition font-medium ${formData.platform === platform
+                                            ? platform === 'instagram' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' :
+                                                platform === 'twitter' ? 'bg-blue-500 text-white' :
+                                                    'bg-blue-700 text-white'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                             }`}
                                     >
                                         {platform}
                                     </button>
                                 ))}
+                            </div>
+
+                            {/* Platform-specific tips */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <p className="text-sm text-blue-800">
+                                    {formData.platform === 'instagram' && (
+                                        <>
+                                            <strong>Instagram:</strong> Visual storytelling with emojis. Use 15-30 hashtags. Max 2,200 characters.
+                                        </>
+                                    )}
+                                    {formData.platform === 'twitter' && (
+                                        <>
+                                            <strong>Twitter:</strong> Concise and punchy. 1-3 hashtags max. <strong>280 character limit!</strong>
+                                        </>
+                                    )}
+                                    {formData.platform === 'linkedin' && (
+                                        <>
+                                            <strong>LinkedIn:</strong> Professional insights and thought leadership. 3-5 hashtags. Max 3,000 characters.
+                                        </>
+                                    )}
+                                </p>
                             </div>
                         </div>
 
@@ -248,49 +308,6 @@ export default function CreatePostPage() {
                                 </p>
                             </div>
 
-                            {/* Text Overlay Options */}
-                            <div className="mb-3 flex items-center gap-4">
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.addTextOverlay}
-                                        onChange={(e) => setFormData({ ...formData, addTextOverlay: e.target.checked })}
-                                        className="w-4 h-4 text-blue-600"
-                                    />
-                                    <span className="text-sm text-gray-700">Add text overlay to image</span>
-                                </label>
-                            </div>
-
-                            {/* Language Selection */}
-                            {formData.addTextOverlay && (
-                                <div className="mb-3">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Text Language
-                                    </label>
-                                    <div className="flex gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, language: 'english' })}
-                                            className={`px-4 py-2 rounded-lg transition ${formData.language === 'english'
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                                }`}
-                                        >
-                                            English
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, language: 'hindi' })}
-                                            className={`px-4 py-2 rounded-lg transition ${formData.language === 'hindi'
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                                }`}
-                                        >
-                                            हिंदी (Hindi)
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
 
                             <button
                                 onClick={handleGenerateImage}
@@ -311,7 +328,7 @@ export default function CreatePostPage() {
                         {/* Caption */}
                         <div className="bg-white rounded-lg shadow p-6">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-semibold text-gray-900">Caption</h3>
+                                <h3 className="font-semibold text-gray-900">Caption for {formData.platform}</h3>
                                 <button
                                     onClick={handleGenerateCaption}
                                     disabled={generating}
@@ -324,13 +341,29 @@ export default function CreatePostPage() {
                             <textarea
                                 value={formData.caption}
                                 onChange={(e) => setFormData({ ...formData, caption: e.target.value })}
-                                placeholder="Write your caption here..."
+                                placeholder={`Write your ${formData.platform} caption here...`}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                                 rows={6}
                             />
-                            <p className="text-sm text-gray-600 mt-2">
-                                {formData.caption.length} characters
-                            </p>
+                            <div className="flex items-center justify-between mt-2">
+                                <p className="text-sm text-gray-600">
+                                    {formData.caption.length} characters
+                                    {formData.platform === 'twitter' && formData.caption.length > 280 && (
+                                        <span className="text-red-600 ml-2">
+                                            (Over Twitter limit!)
+                                        </span>
+                                    )}
+                                </p>
+                                {formData.platform === 'twitter' && (
+                                    <p className="text-xs text-gray-500">Max: 280 characters</p>
+                                )}
+                                {formData.platform === 'instagram' && (
+                                    <p className="text-xs text-gray-500">Max: 2,200 characters</p>
+                                )}
+                                {formData.platform === 'linkedin' && (
+                                    <p className="text-xs text-gray-500">Max: 3,000 characters</p>
+                                )}
+                            </div>
                         </div>
 
                         {/* Hashtags */}
@@ -403,8 +436,26 @@ export default function CreatePostPage() {
                             )}
 
                             {/* Caption Preview */}
-                            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                                <p className="text-gray-900 whitespace-pre-wrap">
+                            <div className="bg-gray-50 rounded-lg p-4 mb-4 relative">
+                                {formData.caption && (
+                                    <button
+                                        onClick={() => {
+                                            const fullText = formData.caption + (formData.hashtags.length > 0 ? '\n\n' + formData.hashtags.map(tag => `#${tag}`).join(' ') : '');
+                                            navigator.clipboard.writeText(fullText);
+                                            setCopiedCaption(true);
+                                            setTimeout(() => setCopiedCaption(false), 2000);
+                                        }}
+                                        className="absolute top-2 right-2 p-1.5 rounded hover:bg-gray-200 transition"
+                                        title="Copy caption"
+                                    >
+                                        {copiedCaption ? (
+                                            <Check className="w-4 h-4 text-green-600" />
+                                        ) : (
+                                            <Copy className="w-4 h-4 text-gray-500" />
+                                        )}
+                                    </button>
+                                )}
+                                <p className="text-gray-900 whitespace-pre-wrap pr-8">
                                     {formData.caption || 'Your caption will appear here...'}
                                 </p>
                                 {formData.hashtags.length > 0 && (
@@ -436,6 +487,99 @@ export default function CreatePostPage() {
                     </div>
                 </div>
             </main>
+
+            {/* Multi-Platform Captions Modal */}
+            {showMultiPlatform && multiPlatformCaptions && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                            <h2 className="text-2xl font-bold text-gray-900">Multi-Platform Captions</h2>
+                            <button
+                                onClick={() => setShowMultiPlatform(false)}
+                                className="text-gray-400 hover:text-gray-600 text-2xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {Object.entries(multiPlatformCaptions).map(([platform, data]: [string, any]) => (
+                                <div key={platform} className="border rounded-lg p-6 hover:shadow-md transition">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900 capitalize flex items-center gap-2">
+                                                {platform}
+                                                <span className={`text-xs px-2 py-1 rounded ${platform === 'instagram' ? 'bg-pink-100 text-pink-800' :
+                                                    platform === 'twitter' ? 'bg-blue-100 text-blue-800' :
+                                                        'bg-blue-100 text-blue-800'
+                                                    }`}>
+                                                    {data.character_count || data.caption.length} chars
+                                                </span>
+                                            </h3>
+                                            {data.platform_notes && (
+                                                <p className="text-sm text-gray-600 mt-1">{data.platform_notes}</p>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleCopyCaption(platform, data.caption, data.hashtags)}
+                                                className="flex items-center gap-1 px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 text-sm"
+                                            >
+                                                {copiedPlatform === platform ? (
+                                                    <>
+                                                        <Check className="w-4 h-4 text-green-600" />
+                                                        Copied
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Copy className="w-4 h-4" />
+                                                        Copy
+                                                    </>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => handleUsePlatformCaption(platform)}
+                                                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                                            >
+                                                Use This
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-gray-50 rounded-lg p-4 mb-3">
+                                        <p className="text-gray-900 whitespace-pre-wrap">{data.caption}</p>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        {data.hashtags?.map((tag: string, idx: number) => (
+                                            <span key={idx} className="text-sm text-blue-600">
+                                                #{tag}
+                                            </span>
+                                        ))}
+                                    </div>
+
+                                    {data.cta && (
+                                        <div className="mt-3 pt-3 border-t">
+                                            <p className="text-sm text-gray-600">
+                                                <strong>CTA:</strong> {data.cta}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="sticky bottom-0 bg-white border-t px-6 py-4">
+                            <button
+                                onClick={() => setShowMultiPlatform(false)}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -83,6 +83,13 @@ export const generateCaption = async (brandId: number, contentIdea: any, platfor
     return response.data;
 };
 
+export const generateMultiplatformCaptions = async (brandId: number, contentIdea: any) => {
+    const response = await api.post('/content/caption-multiplatform', contentIdea, {
+        params: { brand_id: brandId },
+    });
+    return response.data;
+};
+
 // Post APIs
 export const createPost = async (data: {
     brand_id: number;
