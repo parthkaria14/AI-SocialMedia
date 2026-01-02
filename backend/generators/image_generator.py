@@ -4,6 +4,9 @@ from io import BytesIO
 import os
 from datetime import datetime
 import time
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class ImageGenerator:
     """
@@ -23,18 +26,18 @@ class ImageGenerator:
             # You can hardcode it here for testing, but env var is safer.
             api_key = os.environ.get("POLLINATIONS_API_KEY", "YOUR_API_KEY_HERE")
             
-            # 2. Pollinations API endpoint
-            # Standard endpoint supports auth headers
-            url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(prompt)}"
+            # Debug: Check if key is loaded (shows first 8 chars only for security)
+            print(f"[DEBUG] API Key loaded: {api_key[:8]}... (length: {len(api_key)})" if api_key else "[DEBUG] No API key found!")
             
-            # 3. Configure parameters for Premium/Paid generation
+            # 2. Pollinations API endpoint - PAID TIER uses gen.pollinations.ai
+            url = f"https://gen.pollinations.ai/image/{requests.utils.quote(prompt)}"
+            
+            # 3. Configure parameters
             params = {
                 "width": width,
                 "height": height,
+                "model": "gptimage-large",  # Model to use
                 "nologo": "true",
-                "private": "true",        # Paid feature: keeps image private
-                "enhance": "true",        # Paid feature: better prompt following
-                "model": "turbo" # Premium model (DALL-E 3 via Azure)
             }
             
             # 4. Add Authorization Header
