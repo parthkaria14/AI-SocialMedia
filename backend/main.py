@@ -1,9 +1,12 @@
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
 import json
+import os
 from datetime import datetime
 
 from models.database import get_db, init_db, Brand, Post, Analytics, Strategy, ContentQueue
@@ -23,10 +26,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files for generated images
+# This allows frontend to access images via /generated_images/filename.png
+if os.path.exists("data/generated_images"):
+    app.mount("/generated_images", StaticFiles(directory="data/generated_images"), name="generated_images")
+
 # Initialize DB on startup
 @app.on_event("startup")
 def startup_event():
     init_db()
+    # Ensure images directory exists
+    os.makedirs("data/generated_images", exist_ok=True)
 
 # Pydantic Models
 class BrandCreate(BaseModel):
@@ -64,6 +74,17 @@ def root():
         "version": "1.0.0",
         "status": "running"
     }
+
+# Image serving endpoint
+@app.get("/api/images/{filename}")
+async def serve_image(filename: str):
+    """
+    Serve generated images from the local directory
+    """
+    filepath = os.path.join("data/generated_images", filename)
+    if os.path.exists(filepath):
+        return FileResponse(filepath)
+    raise HTTPException(status_code=404, detail="Image not found")
 
 @app.post("/brands/")
 def create_brand(brand: BrandCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
@@ -312,9 +333,9 @@ def generate_strategy(brand_id: int, db: Session = Depends(get_db)):
     }
 
 @app.post("/images/generate")
-def generate_images(brand_id: int, content_ideas: List[dict], count: int = 3, add_text: bool = True, language: str = "english", db: Session = Depends(get_db)):
+def generate_images(brand_id: int, content_ideas: List[dict], count: int = 3, db: Session = Depends(get_db)):
     """
-    Generate images for content ideas with enhanced quality and text overlays
+    Generate images for content ideas
     """
     brand = db.query(Brand).filter(Brand.id == brand_id).first()
     if not brand:
@@ -327,7 +348,12 @@ def generate_images(brand_id: int, content_ideas: List[dict], count: int = 3, ad
     brand.brand_profile['username'] = brand.instagram_handle
     
     generator = ImageGenerator()
-    results = generator.batch_generate(content_ideas, brand.brand_profile, count=count, add_text=add_text, language=language)
+    results = generator.batch_generate(content_ideas, brand.brand_profile, count=count)
+    
+    # Update results with proper local URLs
+    for result in results:
+        if result.get('success') and result.get('filename'):
+            result['url'] = f"/api/images/{result['filename']}"
     
     return {
         "brand_id": brand_id,
@@ -337,21 +363,18 @@ def generate_images(brand_id: int, content_ideas: List[dict], count: int = 3, ad
 @app.post("/images/generate-single")
 def generate_single_image(prompt: str, title: str = "", width: int = 1080, height: int = 1080, add_text: bool = False, language: str = "english"):
     """
-    Generate single image from custom prompt with optional text overlay
+    Generate single image from custom prompt
     """
     generator = ImageGenerator()
     
-    # Create minimal brand profile for generation
-    brand_profile = {
-        "brand_voice": "professional",
-        "visual_style": "modern",
-        "username": ""
-    }
+    # Generate image with Pollinations (saves locally)
+    result = generator.generate_with_pollinations(prompt, width, height)
     
-    if add_text and title:
-        result = generator.generate_from_custom_prompt(prompt, brand_profile, title=title, add_text=True, language=language)
-    else:
-        result = generator.generate_with_pollinations(prompt, width, height)
+    # Return local URL instead of external Pollinations URL
+    if result.get('success') and result.get('filename'):
+        result['url'] = f"/api/images/{result['filename']}"
+        # Remove the external Pollinations URL
+        result.pop('filepath', None)
     
     return result
 

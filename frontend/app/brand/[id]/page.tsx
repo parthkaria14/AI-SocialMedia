@@ -312,16 +312,38 @@ export default function BrandDetailPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {contentIdeas.map((idea, idx) => (
                                     <div key={idx} className="bg-white rounded-lg shadow p-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                            {idea.title}
-                                        </h3>
-                                        <p className="text-gray-600 mb-4">{idea.description}</p>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded">
+                                        <div className="flex items-start justify-between mb-2">
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                {idea.title}
+                                            </h3>
+                                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${idea.content_type === 'image' ? 'bg-blue-100 text-blue-800' :
+                                                idea.content_type === 'carousel' ? 'bg-purple-100 text-purple-800' :
+                                                    idea.content_type === 'video' || idea.content_type === 'reel' ? 'bg-red-100 text-red-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                                }`}>
                                                 {idea.content_type}
                                             </span>
+                                        </div>
+                                        <p className="text-gray-600 mb-4">{idea.description}</p>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex flex-wrap gap-1">
+                                                {idea.hashtag_suggestions?.slice(0, 3).map((tag: string, i: number) => (
+                                                    <span key={i} className="text-xs text-blue-600">
+                                                        #{tag}
+                                                    </span>
+                                                ))}
+                                            </div>
                                             <Link
-                                                href={`/brand/${brandId}/create?idea=${idx}`}
+                                                href={{
+                                                    pathname: `/brand/${brandId}/create`,
+                                                    query: {
+                                                        title: idea.title,
+                                                        description: idea.description,
+                                                        contentType: idea.content_type,
+                                                        captionHook: idea.caption_hook,
+                                                        hashtags: JSON.stringify(idea.hashtag_suggestions || [])
+                                                    }
+                                                }}
                                                 className="text-blue-600 hover:text-blue-700 font-medium text-sm"
                                             >
                                                 Create Post →

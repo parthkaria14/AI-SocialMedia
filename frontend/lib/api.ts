@@ -129,6 +129,12 @@ export const generateSingleImage = async (prompt: string, title: string = "", wi
     const response = await api.post('/images/generate-single', null, {
         params: { prompt, title, width, height, add_text: addText, language },
     });
+
+    // Prepend the backend URL to the image path since images are served from the backend
+    if (response.data.success && response.data.url) {
+        response.data.url = `${API_BASE_URL}${response.data.url}`;
+    }
+
     return response.data;
 };
 

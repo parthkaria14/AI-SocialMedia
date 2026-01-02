@@ -1,5 +1,4 @@
 import google.generativeai as genai
-from groq import Groq
 import os
 import json
 from dotenv import load_dotenv
@@ -8,48 +7,8 @@ load_dotenv()
 
 class BrandAnalyzer:
     def __init__(self):
-        # Primary: Gemini
         genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
         self.model = genai.GenerativeModel('gemini-2.5-flash')
-        
-        # Backup: Groq
-        self.groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
-        self.groq_model = "openai/gpt-oss-120b"
-    
-    def _generate_content(self, prompt: str) -> str:
-        """
-        Generate content using Gemini with Groq fallback.
-        Returns the raw text response.
-        """
-        # Try Gemini first
-        try:
-            response = self.model.generate_content(prompt)
-            return response.text.strip()
-        except Exception as gemini_error:
-            print(f"Gemini failed: {gemini_error}. Falling back to Groq...")
-        
-        # Fallback to Groq
-        try:
-            response = self.groq_client.chat.completions.create(
-                model=self.groq_model,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=4096
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as groq_error:
-            print(f"Groq also failed: {groq_error}")
-            raise Exception(f"Both Gemini and Groq failed. Gemini: {gemini_error}, Groq: {groq_error}")
-    
-    def _parse_json_response(self, result: str):
-        """Parse JSON from AI response, handling markdown code blocks."""
-        if result.startswith('```json'):
-            result = result[7:-3]
-        elif result.startswith('```'):
-            result = result[3:-3]
-        return json.loads(result)
     
     def analyze_brand_profile(self, brand_data):
         """
@@ -91,8 +50,15 @@ Return ONLY valid JSON, no markdown formatting.
 """
         
         try:
-            result = self._generate_content(prompt)
-            brand_profile = self._parse_json_response(result)
+            response = self.model.generate_content(prompt)
+            # Clean response and parse JSON
+            result = response.text.strip()
+            if result.startswith('```json'):
+                result = result[7:-3]
+            elif result.startswith('```'):
+                result = result[3:-3]
+            
+            brand_profile = json.loads(result)
             return brand_profile
         except Exception as e:
             print(f"Error analyzing brand: {e}")
@@ -119,25 +85,35 @@ Generate content ideas that:
 - Align with the brand voice and themes
 - Engage the target audience
 - Are suitable for {platform}
-- Include a mix of educational, entertaining, and promotional content
+- Include a mix of content types: image posts, carousel posts, reels/video content
+- Are actionable and specific
 
 Return as JSON array with format:
 [
   {{
     "title": "content idea title",
-    "description": "brief description",
-    "content_type": "image/video/carousel",
+    "description": "detailed visual description for image generation",
+    "content_type": "image/carousel/video/reel",
     "caption_hook": "engaging opening line",
     "hashtag_suggestions": ["tag1", "tag2"]
   }}
 ]
 
+Make sure descriptions are vivid and specific for AI image generation.
+Example: "A vibrant summer scene with people enjoying outdoor activities, bright sunlight, colorful clothing, beach background, joyful expressions"
+
 Return ONLY valid JSON array, no markdown.
 """
         
         try:
-            result = self._generate_content(prompt)
-            ideas = self._parse_json_response(result)
+            response = self.model.generate_content(prompt)
+            result = response.text.strip()
+            if result.startswith('```json'):
+                result = result[7:-3]
+            elif result.startswith('```'):
+                result = result[3:-3]
+            
+            ideas = json.loads(result)
             return ideas
         except Exception as e:
             print(f"Error generating ideas: {e}")
@@ -173,8 +149,14 @@ Return ONLY valid JSON, no markdown.
 """
         
         try:
-            result = self._generate_content(prompt)
-            caption_data = self._parse_json_response(result)
+            response = self.model.generate_content(prompt)
+            result = response.text.strip()
+            if result.startswith('```json'):
+                result = result[7:-3]
+            elif result.startswith('```'):
+                result = result[3:-3]
+            
+            caption_data = json.loads(result)
             return caption_data
         except Exception as e:
             print(f"Error generating caption: {e}")
@@ -227,8 +209,14 @@ Return ONLY valid JSON, no markdown.
 """
         
         try:
-            result = self._generate_content(prompt)
-            analysis = self._parse_json_response(result)
+            response = self.model.generate_content(prompt)
+            result = response.text.strip()
+            if result.startswith('```json'):
+                result = result[7:-3]
+            elif result.startswith('```'):
+                result = result[3:-3]
+            
+            analysis = json.loads(result)
             return analysis
         except Exception as e:
             print(f"Error analyzing performance: {e}")

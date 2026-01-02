@@ -33,7 +33,25 @@ export default function CreatePostPage() {
 
     useEffect(() => {
         loadBrand();
-    }, [brandId]);
+
+        // Load data from query params
+        const title = searchParams.get('title');
+        const description = searchParams.get('description');
+        const contentType = searchParams.get('contentType');
+        const captionHook = searchParams.get('captionHook');
+        const hashtagsParam = searchParams.get('hashtags');
+
+        if (title || description) {
+            setFormData(prev => ({
+                ...prev,
+                imageTitle: title || prev.imageTitle,
+                imagePrompt: description || prev.imagePrompt,
+                contentType: contentType || 'image',
+                caption: captionHook || prev.caption,
+                hashtags: hashtagsParam ? JSON.parse(hashtagsParam) : prev.hashtags,
+            }));
+        }
+    }, [brandId, searchParams]);
 
     const loadBrand = async () => {
         try {
@@ -179,12 +197,17 @@ export default function CreatePostPage() {
                             </div>
                         </div>
 
-                        {/* Content Type - Removed for now, default to image */}
+                        {/* Content Type - Show suggestion based on passed type */}
                         <div className="bg-white rounded-lg shadow p-6">
                             <h3 className="font-semibold text-gray-900 mb-4">Content Type</h3>
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <p className="text-sm text-blue-800">
-                                    <strong>Image Posts Only</strong> - Currently supporting high-quality image generation with AI. Video support coming soon!
+                                <p className="text-sm text-blue-800 mb-2">
+                                    <strong>Suggested: {formData.contentType === 'carousel' ? 'Carousel Post' :
+                                        formData.contentType === 'video' ? 'Video Content' :
+                                            formData.contentType === 'reel' ? 'Reel' : 'Image Post'}</strong>
+                                </p>
+                                <p className="text-xs text-blue-700">
+                                    Currently supporting high-quality image generation with AI. Carousel and video support coming soon!
                                 </p>
                             </div>
                         </div>
