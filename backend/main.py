@@ -56,6 +56,7 @@ class PostCreate(BaseModel):
     content_type: str
     caption: str
     hashtags: List[str]
+    media_urls: Optional[List[str]] = None
     scheduled_time: Optional[str] = None
 
 class CompetitorAnalysisRequest(BaseModel):
@@ -226,7 +227,7 @@ def create_post(post: PostCreate, db: Session = Depends(get_db)):
         hashtags=post.hashtags,
         status="draft" if not scheduled_time else "scheduled",
         scheduled_time=scheduled_time,
-        media_urls=[]
+        media_urls=post.media_urls or []
     )
     
     db.add(new_post)

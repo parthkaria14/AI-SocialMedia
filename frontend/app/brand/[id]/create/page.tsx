@@ -136,6 +136,7 @@ export default function CreatePostPage() {
                 content_type: formData.contentType,
                 caption: formData.caption,
                 hashtags: formData.hashtags,
+                media_urls: formData.generatedImageUrl ? [formData.generatedImageUrl] : [],
                 scheduled_time: status === 'scheduled' ? formData.scheduledTime : undefined,
             });
 

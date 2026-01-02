@@ -90,6 +90,7 @@ export const createPost = async (data: {
     content_type: string;
     caption: string;
     hashtags: string[];
+    media_urls?: string[];
     scheduled_time?: string;
 }) => {
     const response = await api.post('/posts/', data);
