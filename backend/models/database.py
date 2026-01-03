@@ -28,12 +28,14 @@ class Brand(Base):
     posts = relationship("Post", back_populates="brand")
     analytics = relationship("Analytics", back_populates="brand")
     strategies = relationship("Strategy", back_populates="brand")
+    campaigns = relationship("Campaign", back_populates="brand")
 
 class Post(Base):
     __tablename__ = "posts"
     
     id = Column(Integer, primary_key=True, index=True)
     brand_id = Column(Integer, ForeignKey("brands.id"))
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
     platform = Column(String)  # instagram, twitter, linkedin
     content_type = Column(String)  # text, image, video
     caption = Column(Text)
@@ -46,6 +48,7 @@ class Post(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     brand = relationship("Brand", back_populates="posts")
+    campaign = relationship("Campaign", back_populates="posts")
     analytics = relationship("Analytics", back_populates="post")
 
 class Analytics(Base):
@@ -54,11 +57,16 @@ class Analytics(Base):
     id = Column(Integer, primary_key=True, index=True)
     brand_id = Column(Integer, ForeignKey("brands.id"))
     post_id = Column(Integer, ForeignKey("posts.id"), nullable=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
     platform = Column(String)
     likes = Column(Integer, default=0)
     comments = Column(Integer, default=0)
     shares = Column(Integer, default=0)
     reach = Column(Integer, default=0)
+    impressions = Column(Integer, default=0)
+    clicks = Column(Integer, default=0)
+    conversions = Column(Integer, default=0)
+    spend = Column(Float, default=0.0)
     engagement_rate = Column(Float, default=0.0)
     timestamp = Column(DateTime, default=datetime.utcnow)
     
@@ -89,6 +97,30 @@ class ContentQueue(Base):
     status = Column(String, default="pending")
     data = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    brand_id = Column(Integer, ForeignKey("brands.id"))
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    campaign_type = Column(String, default="organic")
+    status = Column(String, default="draft")
+    platforms = Column(JSON)
+    objectives = Column(JSON)
+    budget = Column(Float, default=0.0)
+    spent = Column(Float, default=0.0)
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    total_impressions = Column(Integer, default=0)
+    total_clicks = Column(Integer, default=0)
+    total_conversions = Column(Integer, default=0)
+    
+    brand = relationship("Brand", back_populates="campaigns")
+    posts = relationship("Post", back_populates="campaign")
+
 
 def init_db():
     Base.metadata.create_all(bind=engine)

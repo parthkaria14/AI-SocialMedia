@@ -175,5 +175,76 @@ export const getChartData = async (brandId: number, days: number = 30) => {
     });
     return response.data;
 };
+// Campaign Management APIs
+export const createCampaign = async (data: {
+    brand_id: number;
+    name: string;
+    description: string;
+    campaign_type: string;
+    platforms: string[];
+    objectives: string[];
+    budget: number;
+    start_date?: string;
+    end_date?: string;
+}) => {
+    const response = await api.post('/campaigns/', data);
+    return response.data;
+};
+
+export const getBrandCampaigns = async (brandId: number) => {
+    const response = await api.get(`/campaigns/brand/${brandId}`);
+    return response.data;
+};
+
+export const getAdRecommendations = async (brandId: number, objectives: string[], budget: number, targetMetrics: any) => {
+    const response = await api.post('/campaigns/ad-recommendations', {
+        brand_id: brandId,
+        objectives,
+        budget,
+        target_metrics: targetMetrics
+    });
+    return response.data;
+};
+
+export const getCampaignPerformance = async (campaignId: number) => {
+    const response = await api.get(`/campaigns/${campaignId}/performance`);
+    return response.data;
+};
+
+export const updateCampaign = async (campaignId: number, data: {
+    name?: string;
+    description?: string;
+    campaign_type?: string;
+    platforms?: string[];
+    objectives?: string[];
+    budget?: number;
+    start_date?: string;
+    end_date?: string;
+}) => {
+    const response = await api.put(`/campaigns/${campaignId}`, data);
+    return response.data;
+};
+
+export const deleteCampaign = async (campaignId: number) => {
+    const response = await api.delete(`/campaigns/${campaignId}`);
+    return response.data;
+};
+
+export const updateCampaignStatus = async (campaignId: number, status: string) => {
+    const response = await api.patch(`/campaigns/${campaignId}/status`, { status });
+    return response.data;
+};
+
+export const analyzeCampaign = async (campaignId: number) => {
+    const response = await api.post(`/campaigns/${campaignId}/analyze`);
+    return response.data;
+};
+
+export const generateCampaignStrategy = async (campaignId: number, durationDays: number = 30) => {
+    const response = await api.post(`/campaigns/${campaignId}/strategy`, null, {
+        params: { duration_days: durationDays }
+    });
+    return response.data;
+};
 
 export default api;

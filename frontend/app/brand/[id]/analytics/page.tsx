@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { getBrand, getChartData } from '@/lib/api';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react';
-import Link from 'next/link';
+import { TrendingUp, TrendingDown } from 'lucide-react';
+import BrandNavBar from '@/components/BrandNavBar';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
@@ -68,27 +68,20 @@ export default function AnalyticsPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <header className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <Link href={`/brand/${brandId}`} className="text-gray-600 hover:text-gray-900">
-                                <ArrowLeft className="w-6 h-6" />
-                            </Link>
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-                                <p className="text-gray-600">{brand?.brand?.name}</p>
-                            </div>
-                        </div>
+            {/* Shared Navigation Bar */}
+            <BrandNavBar brandId={brandId} brandName={brand?.brand?.name} />
 
-                        {/* Time Range Selector */}
+            {/* Time Range Selector */}
+            <div className="bg-white border-b">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900">Analytics Dashboard</h2>
                         <div className="flex gap-2">
                             {[7, 30, 90].map((days) => (
                                 <button
                                     key={days}
                                     onClick={() => setTimeRange(days)}
-                                    className={`px-4 py-2 rounded-lg transition ${timeRange === days
+                                    className={`px-4 py-2 rounded-lg text-sm transition ${timeRange === days
                                         ? 'bg-blue-600 text-white'
                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                         }`}
@@ -99,7 +92,7 @@ export default function AnalyticsPage() {
                         </div>
                     </div>
                 </div>
-            </header>
+            </div>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Summary Cards */}

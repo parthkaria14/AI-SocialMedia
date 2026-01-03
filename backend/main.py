@@ -9,7 +9,8 @@ import json
 import os
 from datetime import datetime
 
-from models.database import get_db, init_db, Brand, Post, Analytics, Strategy, ContentQueue
+from models.database import get_db, init_db, Brand, Post, Analytics, Strategy, ContentQueue, Campaign
+from agents.campaign_agent import CampaignAgent
 from scrapers.instagram_scraper import InstagramScraper
 from agents.brand_analyzer import BrandAnalyzer
 from agents.competitor_analyzer import CompetitorAnalyzer
@@ -66,6 +67,37 @@ class CompetitorAnalysisRequest(BaseModel):
 
 class TrendingContentRequest(BaseModel):
     competitor_handles: List[str]
+
+
+class CampaignCreate(BaseModel):
+    brand_id: int
+    name: str
+    description: str
+    campaign_type: str = "organic"  # organic, paid, mixed
+    platforms: List[str]
+    objectives: List[str]
+    budget: float = 0.0
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+class AdPlatformRequest(BaseModel):
+    brand_id: int
+    objectives: List[str]
+    budget: float
+    target_metrics: dict
+
+class CampaignUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    campaign_type: Optional[str] = None
+    platforms: Optional[List[str]] = None
+    objectives: Optional[List[str]] = None
+    budget: Optional[float] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+class CampaignStatusUpdate(BaseModel):
+    status: str  # draft, active, paused, completed
 
 # Routes
 
@@ -541,6 +573,242 @@ def get_chart_data(brand_id: int, days: int = 30, db: Session = Depends(get_db))
         "content_performance": sorted(posts_with_analytics, key=lambda x: x["engagement_rate"], reverse=True)[:10],
         "platform_breakdown": platform_stats
     }
+
+@app.post("/campaigns/")
+def create_campaign(campaign: CampaignCreate, db: Session = Depends(get_db)):
+    """Create new campaign"""
+    brand = db.query(Brand).filter(Brand.id == campaign.brand_id).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    
+    new_campaign = Campaign(
+        brand_id=campaign.brand_id,
+        name=campaign.name,
+        description=campaign.description,
+        campaign_type=campaign.campaign_type,
+        status="draft",
+        platforms=campaign.platforms,
+        objectives=campaign.objectives,
+        budget=campaign.budget,
+        start_date=datetime.fromisoformat(campaign.start_date) if campaign.start_date else None,
+        end_date=datetime.fromisoformat(campaign.end_date) if campaign.end_date else None
+    )
+    
+    db.add(new_campaign)
+    db.commit()
+    db.refresh(new_campaign)
+    
+    return {
+        "message": "Campaign created successfully",
+        "campaign_id": new_campaign.id
+    }
+
+@app.get("/campaigns/brand/{brand_id}")
+def get_brand_campaigns(brand_id: int, db: Session = Depends(get_db)):
+    """Get all campaigns for a brand"""
+    campaigns = db.query(Campaign).filter(Campaign.brand_id == brand_id).order_by(Campaign.created_at.desc()).all()
+    return campaigns
+
+@app.post("/campaigns/ad-recommendations")
+def get_ad_recommendations(request: AdPlatformRequest, db: Session = Depends(get_db)):
+    """Get AI-powered ad platform recommendations"""
+    brand = db.query(Brand).filter(Brand.id == request.brand_id).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    
+    campaign_agent = CampaignAgent()
+    recommendations = campaign_agent.recommend_ad_platforms(
+        brand.brand_profile,
+        request.objectives,
+        request.budget,
+        request.target_metrics
+    )
+    
+    return recommendations
+
+@app.get("/campaigns/{campaign_id}/performance")
+def get_campaign_performance(campaign_id: int, db: Session = Depends(get_db)):
+    """Get campaign performance metrics"""
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get campaign analytics
+    analytics = db.query(Analytics).filter(Analytics.campaign_id == campaign_id).all()
+    
+    campaign_agent = CampaignAgent()
+    metrics = campaign_agent.calculate_campaign_metrics([
+        {
+            "impressions": a.impressions,
+            "clicks": a.clicks,
+            "conversions": a.conversions,
+            "spend": a.spend,
+            "likes": a.likes,
+            "comments": a.comments,
+            "shares": a.shares
+        }
+        for a in analytics
+    ])
+    
+    return {
+        "campaign": campaign,
+        "metrics": metrics,
+        "analytics": analytics
+    }
+
+@app.put("/campaigns/{campaign_id}")
+def update_campaign(campaign_id: int, update_data: CampaignUpdate, db: Session = Depends(get_db)):
+    """Update campaign details"""
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Update fields that are provided
+    if update_data.name is not None:
+        campaign.name = update_data.name
+    if update_data.description is not None:
+        campaign.description = update_data.description
+    if update_data.campaign_type is not None:
+        campaign.campaign_type = update_data.campaign_type
+    if update_data.platforms is not None:
+        campaign.platforms = update_data.platforms
+    if update_data.objectives is not None:
+        campaign.objectives = update_data.objectives
+    if update_data.budget is not None:
+        campaign.budget = update_data.budget
+    if update_data.start_date is not None:
+        campaign.start_date = datetime.fromisoformat(update_data.start_date) if update_data.start_date else None
+    if update_data.end_date is not None:
+        campaign.end_date = datetime.fromisoformat(update_data.end_date) if update_data.end_date else None
+    
+    db.commit()
+    db.refresh(campaign)
+    
+    return {
+        "message": "Campaign updated successfully",
+        "campaign": campaign
+    }
+
+@app.delete("/campaigns/{campaign_id}")
+def delete_campaign(campaign_id: int, db: Session = Depends(get_db)):
+    """Delete a campaign"""
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Delete associated analytics for this campaign
+    db.query(Analytics).filter(Analytics.campaign_id == campaign_id).delete()
+    
+    # Update posts to remove campaign association
+    db.query(Post).filter(Post.campaign_id == campaign_id).update({Post.campaign_id: None})
+    
+    # Delete the campaign
+    db.delete(campaign)
+    db.commit()
+    
+    return {"message": "Campaign deleted successfully", "campaign_id": campaign_id}
+
+@app.patch("/campaigns/{campaign_id}/status")
+def update_campaign_status(campaign_id: int, status_update: CampaignStatusUpdate, db: Session = Depends(get_db)):
+    """Update campaign status (draft, active, paused, completed)"""
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    valid_statuses = ["draft", "active", "paused", "completed"]
+    if status_update.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    
+    campaign.status = status_update.status
+    
+    # Set start date if activating for first time
+    if status_update.status == "active" and campaign.start_date is None:
+        campaign.start_date = datetime.utcnow()
+    
+    # Set end date if completing
+    if status_update.status == "completed" and campaign.end_date is None:
+        campaign.end_date = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(campaign)
+    
+    return {
+        "message": f"Campaign status updated to {status_update.status}",
+        "campaign": campaign
+    }
+
+@app.post("/campaigns/{campaign_id}/analyze")
+def analyze_campaign(campaign_id: int, db: Session = Depends(get_db)):
+    """Get AI-powered campaign performance analysis"""
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get campaign analytics
+    analytics = db.query(Analytics).filter(Analytics.campaign_id == campaign_id).all()
+    
+    # Convert campaign to dict
+    campaign_data = {
+        "name": campaign.name,
+        "campaign_type": campaign.campaign_type,
+        "platforms": campaign.platforms or [],
+        "budget": campaign.budget,
+        "spent": campaign.spent,
+        "total_impressions": campaign.total_impressions,
+        "total_clicks": campaign.total_clicks,
+        "total_conversions": campaign.total_conversions
+    }
+    
+    # Convert analytics to list of dicts
+    analytics_data = [
+        {
+            "impressions": a.impressions,
+            "clicks": a.clicks,
+            "conversions": a.conversions,
+            "spend": a.spend,
+            "likes": a.likes,
+            "comments": a.comments,
+            "shares": a.shares,
+            "engagement_rate": a.engagement_rate
+        }
+        for a in analytics
+    ]
+    
+    campaign_agent = CampaignAgent()
+    analysis = campaign_agent.analyze_campaign_performance(campaign_data, analytics_data)
+    
+    return {
+        "campaign_id": campaign_id,
+        "campaign_name": campaign.name,
+        "analysis": analysis
+    }
+
+@app.post("/campaigns/{campaign_id}/strategy")
+def generate_campaign_strategy(campaign_id: int, duration_days: int = 30, db: Session = Depends(get_db)):
+    """Generate AI-powered campaign strategy"""
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get brand for profile
+    brand = db.query(Brand).filter(Brand.id == campaign.brand_id).first()
+    if not brand or not brand.brand_profile:
+        raise HTTPException(status_code=400, detail="Brand profile not available")
+    
+    campaign_agent = CampaignAgent()
+    strategy = campaign_agent.generate_campaign_strategy(
+        brand.brand_profile,
+        campaign.objectives or [],
+        campaign.budget,
+        duration_days
+    )
+    
+    return {
+        "campaign_id": campaign_id,
+        "campaign_name": campaign.name,
+        "strategy": strategy
+    }
+
 
 # Background Tasks
 def scrape_and_analyze_brand(brand_id: int, instagram_handle: str):
