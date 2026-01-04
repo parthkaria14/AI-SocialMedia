@@ -9,7 +9,7 @@ import json
 import os
 from datetime import datetime
 
-from models.database import get_db, init_db, Brand, Post, Analytics, Strategy, ContentQueue, Campaign
+from models.database import get_db, init_db, Brand, Post, Analytics, Strategy, ContentQueue, Campaign, InstagramPost
 from agents.campaign_agent import CampaignAgent
 from scrapers.instagram_scraper import InstagramScraper
 from agents.brand_analyzer import BrandAnalyzer
@@ -810,6 +810,87 @@ def generate_campaign_strategy(campaign_id: int, duration_days: int = 30, db: Se
     }
 
 
+# ==================== Instagram Posts Endpoints ====================
+
+@app.get("/brands/{brand_id}/instagram-posts")
+def get_instagram_posts(brand_id: int, db: Session = Depends(get_db)):
+    """Get all scraped Instagram posts for a brand"""
+    posts = db.query(InstagramPost).filter(
+        InstagramPost.brand_id == brand_id
+    ).order_by(InstagramPost.posted_at.desc()).all()
+    print(f"DEBUG: Returning {len(posts)} posts for brand {brand_id}")
+    return posts
+
+
+@app.get("/campaigns/{campaign_id}/instagram-posts")
+def get_campaign_instagram_posts(campaign_id: int, db: Session = Depends(get_db)):
+    """Get Instagram posts linked to a campaign"""
+    posts = db.query(InstagramPost).filter(
+        InstagramPost.campaign_id == campaign_id
+    ).order_by(InstagramPost.posted_at.desc()).all()
+    print(f"DEBUG: Returning {len(posts)} posts for campaign {campaign_id}")
+    return posts
+
+
+@app.post("/campaigns/{campaign_id}/link-posts")
+def link_posts_to_campaign(campaign_id: int, post_ids: List[int], db: Session = Depends(get_db)):
+    """Link Instagram posts to a campaign"""
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    linked_count = 0
+    for post_id in post_ids:
+        post = db.query(InstagramPost).filter(InstagramPost.id == post_id).first()
+        if post and post.brand_id == campaign.brand_id:
+            post.campaign_id = campaign_id
+            linked_count += 1
+    
+    db.commit()
+    
+    # Recalculate campaign metrics from linked posts
+    update_campaign_metrics_from_posts(campaign_id, db)
+    
+    # Refresh campaign to get updated metrics
+    db.refresh(campaign)
+    
+    return {
+        "message": f"Linked {linked_count} posts to campaign",
+        "campaign_id": campaign_id,
+        "linked_posts": linked_count,
+        "total_impressions": campaign.total_impressions,
+        "total_clicks": campaign.total_clicks
+    }
+
+
+@app.post("/campaigns/{campaign_id}/unlink-posts")
+def unlink_posts_from_campaign(campaign_id: int, post_ids: List[int], db: Session = Depends(get_db)):
+    """Unlink Instagram posts from a campaign"""
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    unlinked_count = 0
+    for post_id in post_ids:
+        post = db.query(InstagramPost).filter(
+            InstagramPost.id == post_id,
+            InstagramPost.campaign_id == campaign_id
+        ).first()
+        if post:
+            post.campaign_id = None
+            unlinked_count += 1
+    
+    db.commit()
+    
+    # Recalculate campaign metrics
+    update_campaign_metrics_from_posts(campaign_id, db)
+    
+    return {
+        "message": f"Unlinked {unlinked_count} posts from campaign",
+        "campaign_id": campaign_id
+    }
+
+
 # Background Tasks
 def scrape_and_analyze_brand(brand_id: int, instagram_handle: str):
     """
@@ -837,8 +918,46 @@ def scrape_and_analyze_brand(brand_id: int, instagram_handle: str):
         brand.last_synced = datetime.utcnow()
         db.commit()
         
-        # Store analytics
+        # Store Instagram posts and analytics
         for post in brand_data.get('posts', []):
+            # Parse posted_at timestamp
+            posted_at = None
+            if post.get('timestamp'):
+                try:
+                    posted_at = datetime.fromisoformat(post['timestamp'].replace('Z', '+00:00'))
+                except:
+                    posted_at = datetime.utcnow()
+            
+            # Check if Instagram post already exists (upsert)
+            existing_post = db.query(InstagramPost).filter(
+                InstagramPost.shortcode == post.get('post_id')
+            ).first()
+            
+            if existing_post:
+                # Update existing post metrics
+                existing_post.likes = post.get('likes', 0)
+                existing_post.comments_count = post.get('comments', 0)
+                existing_post.engagement_rate = post.get('engagement_rate', 0)
+                existing_post.last_synced = datetime.utcnow()
+            else:
+                # Create new Instagram post
+                ig_post = InstagramPost(
+                    brand_id=brand_id,
+                    shortcode=post.get('post_id'),
+                    post_url=post.get('url'),
+                    caption=post.get('caption', ''),
+                    likes=post.get('likes', 0),
+                    comments_count=post.get('comments', 0),
+                    engagement_rate=post.get('engagement_rate', 0),
+                    is_video=post.get('is_video', False),
+                    media_url=post.get('media_url'),
+                    hashtags=post.get('hashtags', []),
+                    posted_at=posted_at,
+                    last_synced=datetime.utcnow()
+                )
+                db.add(ig_post)
+            
+            # Also store in analytics for historical tracking
             analytics = Analytics(
                 brand_id=brand_id,
                 platform="instagram",
@@ -850,9 +969,45 @@ def scrape_and_analyze_brand(brand_id: int, instagram_handle: str):
             db.add(analytics)
         
         db.commit()
+        
+        # Update campaign metrics for any campaigns with linked posts
+        update_all_campaign_metrics(brand_id, db)
     
     db.close()
     print(f"Completed analysis for brand: {instagram_handle}")
+
+
+def update_all_campaign_metrics(brand_id: int, db: Session):
+    """Update metrics for all campaigns of a brand based on linked Instagram posts"""
+    campaigns = db.query(Campaign).filter(Campaign.brand_id == brand_id).all()
+    
+    for campaign in campaigns:
+        update_campaign_metrics_from_posts(campaign.id, db)
+
+
+def update_campaign_metrics_from_posts(campaign_id: int, db: Session):
+    """Calculate campaign metrics from linked Instagram posts"""
+    posts = db.query(InstagramPost).filter(
+        InstagramPost.campaign_id == campaign_id
+    ).all()
+    
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        return
+    
+    if posts:
+        total_likes = sum(p.likes for p in posts)
+        total_comments = sum(p.comments_count for p in posts)
+        avg_engagement = sum(p.engagement_rate for p in posts) / len(posts)
+        
+        # Update campaign with real metrics
+        # Using engagement metrics from actual Instagram posts
+        campaign.total_impressions = total_likes * 10  # Rough estimate
+        campaign.total_clicks = total_likes + total_comments  # Total engagement
+        campaign.total_conversions = len(posts)  # Number of posts
+        
+        db.commit()
+
 
 if __name__ == "__main__":
     import uvicorn

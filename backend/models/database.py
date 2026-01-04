@@ -120,6 +120,30 @@ class Campaign(Base):
     
     brand = relationship("Brand", back_populates="campaigns")
     posts = relationship("Post", back_populates="campaign")
+    instagram_posts = relationship("InstagramPost", back_populates="campaign")
+
+
+class InstagramPost(Base):
+    """Stores scraped Instagram posts with real metrics"""
+    __tablename__ = "instagram_posts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    brand_id = Column(Integer, ForeignKey("brands.id"))
+    shortcode = Column(String, unique=True, index=True)  # Instagram post ID (e.g., "CxYz123")
+    post_url = Column(String)
+    caption = Column(Text)
+    likes = Column(Integer, default=0)
+    comments_count = Column(Integer, default=0)
+    engagement_rate = Column(Float, default=0.0)
+    is_video = Column(Boolean, default=False)
+    media_url = Column(String)
+    hashtags = Column(JSON)
+    posted_at = Column(DateTime)  # When it was posted on Instagram
+    last_synced = Column(DateTime, default=datetime.utcnow)  # When we last updated metrics
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
+    
+    brand = relationship("Brand")
+    campaign = relationship("Campaign", back_populates="instagram_posts")
 
 
 def init_db():

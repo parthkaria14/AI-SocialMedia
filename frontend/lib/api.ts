@@ -247,4 +247,42 @@ export const generateCampaignStrategy = async (campaignId: number, durationDays:
     return response.data;
 };
 
+// Instagram Posts APIs
+export interface InstagramPost {
+    id: number;
+    brand_id: number;
+    shortcode: string;
+    post_url: string;
+    caption: string;
+    likes: number;
+    comments_count: number;
+    engagement_rate: number;
+    is_video: boolean;
+    media_url: string;
+    hashtags: string[];
+    posted_at: string;
+    last_synced: string;
+    campaign_id: number | null;
+}
+
+export const getInstagramPosts = async (brandId: number) => {
+    const response = await api.get<InstagramPost[]>(`/brands/${brandId}/instagram-posts`);
+    return response.data;
+};
+
+export const getCampaignInstagramPosts = async (campaignId: number) => {
+    const response = await api.get<InstagramPost[]>(`/campaigns/${campaignId}/instagram-posts`);
+    return response.data;
+};
+
+export const linkPostsToCampaign = async (campaignId: number, postIds: number[]) => {
+    const response = await api.post(`/campaigns/${campaignId}/link-posts`, postIds);
+    return response.data;
+};
+
+export const unlinkPostsFromCampaign = async (campaignId: number, postIds: number[]) => {
+    const response = await api.post(`/campaigns/${campaignId}/unlink-posts`, postIds);
+    return response.data;
+};
+
 export default api;

@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { getBrand, getBrandCampaigns, createCampaign, updateCampaignStatus, deleteCampaign, analyzeCampaign, generateCampaignStrategy } from '@/lib/api';
-import { Plus, Rocket, DollarSign, Target, Calendar, TrendingUp, Activity, Play, Pause, CheckCircle, Trash2, BarChart3, Lightbulb, X, Sparkles, Eye } from 'lucide-react';
+import { getBrand, getBrandCampaigns, createCampaign, updateCampaignStatus, deleteCampaign, analyzeCampaign, generateCampaignStrategy, getInstagramPosts, getCampaignInstagramPosts, linkPostsToCampaign, unlinkPostsFromCampaign, InstagramPost } from '@/lib/api';
+import { Plus, Rocket, DollarSign, Target, Calendar, TrendingUp, Activity, Play, Pause, CheckCircle, Trash2, BarChart3, Lightbulb, X, Sparkles, Eye, Image, Link2, Unlink } from 'lucide-react';
 import Link from 'next/link';
 import BrandNavBar from '@/components/BrandNavBar';
 
 export default function CampaignsPage() {
+    console.log('Rendering CampaignsPage');
     const params = useParams();
     const brandId = parseInt(params.id as string);
 
@@ -57,6 +58,7 @@ export default function CampaignsPage() {
     };
 
     const openCampaignDetail = (campaign: any) => {
+        console.log('Opening detail for campaign:', campaign.id);
         setSelectedCampaign(campaign);
         setShowDetailModal(true);
     };
@@ -340,6 +342,7 @@ export default function CampaignsPage() {
             {showDetailModal && selectedCampaign && (
                 <CampaignDetailModal
                     campaign={selectedCampaign}
+                    brandId={brandId}
                     onClose={() => {
                         setShowDetailModal(false);
                         setSelectedCampaign(null);
@@ -553,12 +556,72 @@ function CreateCampaignModal({ brandId, onClose, onSuccess }: any) {
 }
 
 // Campaign Detail Modal with AI Analysis
-function CampaignDetailModal({ campaign, onClose, onRefresh }: any) {
-    const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'strategy'>('overview');
+function CampaignDetailModal({ campaign, brandId, onClose, onRefresh }: any) {
+    console.log('Rendering CampaignDetailModal for campaign:', campaign?.id);
+    const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'strategy' | 'posts'>('overview');
     const [analysis, setAnalysis] = useState<any>(null);
     const [strategy, setStrategy] = useState<any>(null);
     const [loadingAnalysis, setLoadingAnalysis] = useState(false);
     const [loadingStrategy, setLoadingStrategy] = useState(false);
+
+    // Instagram Posts Integration
+    const [campaignPosts, setCampaignPosts] = useState<InstagramPost[]>([]);
+    const [availablePosts, setAvailablePosts] = useState<InstagramPost[]>([]);
+    const [loadingPosts, setLoadingPosts] = useState(false);
+    const [linkingPost, setLinkingPost] = useState(false);
+
+    useEffect(() => {
+        if (activeTab === 'posts') {
+            loadPosts();
+        }
+    }, [activeTab]);
+
+    const loadPosts = async () => {
+        setLoadingPosts(true);
+        try {
+            console.log('Loading posts for campaign:', campaign.id, 'brand:', brandId);
+            const [cPosts, bPosts] = await Promise.all([
+                getCampaignInstagramPosts(campaign.id),
+                getInstagramPosts(brandId)
+            ]);
+            console.log('Campaign posts:', cPosts.length, 'Total brand posts:', bPosts.length);
+            setCampaignPosts(cPosts);
+            // Filter out posts already in this campaign
+            const filtered = bPosts.filter(p => p.campaign_id !== campaign.id);
+            console.log('Available posts after filter:', filtered.length);
+            setAvailablePosts(filtered);
+        } catch (error) {
+            console.error('Failed to load posts:', error);
+        } finally {
+            setLoadingPosts(false);
+        }
+    };
+
+    const handleLinkPost = async (postId: number) => {
+        setLinkingPost(true);
+        try {
+            await linkPostsToCampaign(campaign.id, [postId]);
+            await loadPosts();
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            alert('Failed to link post');
+        } finally {
+            setLinkingPost(false);
+        }
+    };
+
+    const handleUnlinkPost = async (postId: number) => {
+        setLinkingPost(true);
+        try {
+            await unlinkPostsFromCampaign(campaign.id, [postId]);
+            await loadPosts();
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            alert('Failed to unlink post');
+        } finally {
+            setLinkingPost(false);
+        }
+    };
 
     const handleAnalyze = async () => {
         setLoadingAnalysis(true);
@@ -605,6 +668,7 @@ function CampaignDetailModal({ campaign, onClose, onRefresh }: any) {
                     <div className="flex gap-2">
                         {[
                             { id: 'overview', label: 'Overview', icon: Eye },
+                            { id: 'posts', label: 'Linked Posts', icon: Link2 },
                             { id: 'analysis', label: 'AI Analysis', icon: BarChart3 },
                             { id: 'strategy', label: 'Strategy', icon: Lightbulb }
                         ].map((tab) => (
@@ -684,6 +748,135 @@ function CampaignDetailModal({ campaign, onClose, onRefresh }: any) {
                                     <Lightbulb className="w-5 h-5" />
                                     {loadingStrategy ? 'Generating...' : 'Generate AI Strategy'}
                                 </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'posts' && (
+                        <div className="space-y-8">
+                            {/* Currently Linked Posts */}
+                            <div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                        <Link2 className="w-5 h-5 text-blue-600" />
+                                        Linked Instagram Posts ({campaignPosts.length})
+                                    </h3>
+                                    <button
+                                        onClick={loadPosts}
+                                        className="text-xs text-blue-600 hover:underline"
+                                    >
+                                        Refresh Posts
+                                    </button>
+                                </div>
+
+                                {loadingPosts ? (
+                                    <div className="py-12 text-center text-gray-500">Loading posts...</div>
+                                ) : campaignPosts.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {campaignPosts.map((post) => (
+                                            <div key={post.id} className="bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                                <div className="flex">
+                                                    <div className="w-32 h-32 flex-shrink-0 bg-gray-100 relative group">
+                                                        {post.media_url ? (
+                                                            <img src={post.media_url} alt="post" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                                <Image className="w-8 h-8" />
+                                                            </div>
+                                                        )}
+                                                        <a
+                                                            href={post.post_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-bold"
+                                                        >
+                                                            View on IG
+                                                        </a>
+                                                    </div>
+                                                    <div className="p-4 flex-1 flex flex-col justify-between">
+                                                        <div>
+                                                            <p className="text-sm text-gray-800 line-clamp-2 mb-2">{post.caption || 'No caption'}</p>
+                                                            <div className="flex gap-4 text-xs text-gray-500">
+                                                                <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> {post.likes}</span>
+                                                                <span className="flex items-center gap-1"><BarChart3 className="w-3 h-3" /> {post.comments_count}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-2 flex justify-end">
+                                                            <button
+                                                                onClick={() => handleUnlinkPost(post.id)}
+                                                                disabled={linkingPost}
+                                                                className="text-red-600 hover:text-red-700 text-xs font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50"
+                                                            >
+                                                                <Unlink className="w-3 h-3" /> Unlink
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="bg-gray-50 border-2 border-dashed rounded-xl py-12 text-center text-gray-500">
+                                        No Instagram posts linked to this campaign yet.
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Available Posts to Link */}
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <Plus className="w-5 h-5 text-green-600" />
+                                    Available Brand Posts to Link
+                                </h3>
+
+                                {loadingPosts ? (
+                                    <div className="py-12 text-center text-gray-500">Loading available posts...</div>
+                                ) : availablePosts.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {availablePosts.slice(0, 8).map((post) => (
+                                            <div key={post.id} className="bg-gray-50 border border-dashed rounded-xl overflow-hidden shadow-sm group">
+                                                <div className="flex">
+                                                    <div className="w-24 h-24 flex-shrink-0 bg-gray-200">
+                                                        {post.media_url ? (
+                                                            <img src={post.media_url} alt="post" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                                <Image className="w-6 h-6" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="p-3 flex-1 flex flex-col justify-between">
+                                                        <div>
+                                                            <p className="text-xs text-gray-600 line-clamp-2 mb-1">{post.caption || 'No caption'}</p>
+                                                            <div className="flex gap-2 text-[10px] text-gray-400">
+                                                                <span>{new Date(post.posted_at).toLocaleDateString()}</span>
+                                                                {post.campaign_id && <span className="text-orange-500">In another campaign</span>}
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-1 flex justify-end">
+                                                            <button
+                                                                onClick={() => handleLinkPost(post.id)}
+                                                                disabled={linkingPost}
+                                                                className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
+                                                            >
+                                                                <Link2 className="w-3 h-3" /> Link to Campaign
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {availablePosts.length > 8 && (
+                                            <div className="col-span-full text-center text-xs text-gray-400 py-2">
+                                                And {availablePosts.length - 8} more posts available...
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-6 text-gray-400 text-sm">
+                                        No more available posts to link.
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
