@@ -33,6 +33,8 @@ export default function CreatePostPage() {
         generatedImageUrl: '',
     });
 
+    const [sourceContext, setSourceContext] = useState<any>(null);
+
     useEffect(() => {
         loadBrand();
 
@@ -40,15 +42,92 @@ export default function CreatePostPage() {
         const title = searchParams.get('title');
         const description = searchParams.get('description');
         const contentType = searchParams.get('contentType');
+        const platform = searchParams.get('platform');
         const captionHook = searchParams.get('captionHook');
         const hashtagsParam = searchParams.get('hashtags');
+        const contextParam = searchParams.get('context');
 
-        if (title || description) {
+        // Parse context from other agents
+        let context: any = null;
+        if (contextParam) {
+            try {
+                context = JSON.parse(contextParam);
+                setSourceContext(context);
+            } catch (e) {
+                console.error('Failed to parse context:', e);
+            }
+        }
+
+        // Build enhanced prompts based on source
+        let enhancedImagePrompt = description || '';
+        let enhancedTitle = title || '';
+
+        if (context) {
+            switch (context.source) {
+                case 'ad-recommendations':
+                    // Create ad-optimized prompt
+                    const adTypes = context.adTypes?.join(', ') || 'social media ad';
+                    const tips = context.tips?.slice(0, 2).join('. ') || '';
+                    enhancedImagePrompt = `Create a professional ${adTypes} image for social media advertising. ${description}${tips ? ` Key elements: ${tips}` : ''}. The image should be eye-catching, high-quality, and optimized for paid advertising with clear visual hierarchy and brand appeal.`;
+                    enhancedTitle = title || `${context.adTypes?.[0] || 'Ad'} Visual`;
+                    break;
+
+                case 'optimization-tip':
+                    // Create tip-based prompt  
+                    enhancedImagePrompt = `Create an engaging social media image that implements this strategy: "${context.tip}". Make it visually compelling with modern design aesthetics, vibrant colors, and clear messaging that drives engagement.`;
+                    enhancedTitle = title || 'Optimized Content';
+                    break;
+
+                case 'competitor-trending':
+                    // Create trending topic prompt
+                    enhancedImagePrompt = `Create a trendy, viral-worthy social media image about "${context.topic}". The style should be modern, eye-catching, and follow current social media design trends. Make it shareable and engagement-focused.`;
+                    enhancedTitle = title || context.topic;
+                    break;
+
+                case 'competitor-top-post':
+                    // Create competitor-inspired prompt
+                    enhancedImagePrompt = `Create a high-performing social media image inspired by this successful concept: "${description}". The original had ${context.originalEngagement?.toFixed(1)}% engagement with ${context.likes?.toLocaleString()} likes. Make it visually striking with professional quality that drives similar engagement.`;
+                    enhancedTitle = title || 'High-Engagement Content';
+                    break;
+
+                case 'campaign-calendar':
+                    // Create campaign-specific prompt with rich details
+                    const contentType = context.contentType || 'image';
+                    const platformStyle = context.platform === 'Instagram' ? 'vibrant, visually stunning, and Instagram-optimized with strong visual hierarchy' :
+                        context.platform === 'Twitter' ? 'bold, eye-catching, and Twitter-friendly with clear messaging' :
+                            context.platform === 'LinkedIn' ? 'professional, polished, and LinkedIn-appropriate with business aesthetics' :
+                                'modern and engaging';
+                    const engagementStyle = context.expectedEngagement === 'high' ? 'viral-worthy with maximum visual impact and shareability' :
+                        context.expectedEngagement === 'medium' ? 'engaging and professionally crafted' :
+                            'clean and on-brand';
+
+                    enhancedImagePrompt = `Create a ${engagementStyle} ${contentType} for the "${context.campaignName || 'marketing'}" campaign (Day ${context.day || 1}).
+
+Content Theme: "${context.contentIdea || description}"
+Platform: ${context.platform || 'social media'} - make it ${platformStyle}
+Campaign Objective: ${context.campaignObjectives || 'brand awareness'}
+
+The image should:
+- Be optimized for ${context.optimalTime || 'peak engagement time'} posting
+- Drive ${context.expectedEngagement || 'high'} engagement
+- Align with a $${context.campaignBudget?.toLocaleString() || '1,000'} campaign budget aesthetic
+- Include compelling visual elements that support the content idea
+- Be professional, on-brand, and campaign-ready`;
+                    enhancedTitle = title || `${context.campaignName} - Day ${context.day}`;
+                    break;
+
+                default:
+                    enhancedImagePrompt = description || '';
+            }
+        }
+
+        if (title || description || platform) {
             setFormData(prev => ({
                 ...prev,
-                imageTitle: title || prev.imageTitle,
-                imagePrompt: description || prev.imagePrompt,
+                imageTitle: enhancedTitle || prev.imageTitle,
+                imagePrompt: enhancedImagePrompt || prev.imagePrompt,
                 contentType: contentType || 'image',
+                platform: platform || prev.platform,
                 caption: captionHook || prev.caption,
                 hashtags: hashtagsParam ? JSON.parse(hashtagsParam) : prev.hashtags,
             }));
@@ -213,6 +292,48 @@ export default function CreatePostPage() {
 
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Context Banner - Show where inspiration came from */}
+                {sourceContext && (
+                    <div className={`mb-6 rounded-lg p-4 border ${sourceContext.source === 'ad-recommendations' ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200' :
+                        sourceContext.source === 'competitor-trending' || sourceContext.source === 'competitor-top-post' ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200' :
+                            sourceContext.source === 'campaign-calendar' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' :
+                                sourceContext.source === 'optimization-tip' ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200' :
+                                    'bg-gray-50 border-gray-200'
+                        }`}>
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${sourceContext.source === 'ad-recommendations' ? 'bg-blue-100' :
+                                sourceContext.source === 'competitor-trending' || sourceContext.source === 'competitor-top-post' ? 'bg-purple-100' :
+                                    sourceContext.source === 'campaign-calendar' ? 'bg-green-100' :
+                                        sourceContext.source === 'optimization-tip' ? 'bg-yellow-100' :
+                                            'bg-gray-100'
+                                }`}>
+                                <Wand2 className={`w-5 h-5 ${sourceContext.source === 'ad-recommendations' ? 'text-blue-600' :
+                                    sourceContext.source === 'competitor-trending' || sourceContext.source === 'competitor-top-post' ? 'text-purple-600' :
+                                        sourceContext.source === 'campaign-calendar' ? 'text-green-600' :
+                                            sourceContext.source === 'optimization-tip' ? 'text-yellow-600' :
+                                                'text-gray-600'
+                                    }`} />
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-semibold text-gray-900">
+                                    {sourceContext.source === 'ad-recommendations' && '✨ Creating ad content from AI recommendations'}
+                                    {sourceContext.source === 'optimization-tip' && '💡 Inspired by optimization tip'}
+                                    {sourceContext.source === 'competitor-trending' && `🔥 Trending topic: "${sourceContext.topic}"`}
+                                    {sourceContext.source === 'competitor-top-post' && `📈 Inspired by high-performing post (${sourceContext.originalEngagement?.toFixed(1)}% engagement)`}
+                                    {sourceContext.source === 'campaign-calendar' && `📅 ${sourceContext.campaignName} - Day ${sourceContext.day} (${sourceContext.platform})`}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                    {sourceContext.source === 'ad-recommendations' && `Expected ROI: ${sourceContext.expectedRoi}x | Budget: $${sourceContext.budget?.toLocaleString()}`}
+                                    {sourceContext.source === 'optimization-tip' && 'AI-enhanced prompt ready for generation'}
+                                    {sourceContext.source === 'competitor-trending' && 'Trending content idea ready for your brand'}
+                                    {sourceContext.source === 'competitor-top-post' && `Original: ${sourceContext.likes?.toLocaleString()} likes`}
+                                    {sourceContext.source === 'campaign-calendar' && `${sourceContext.optimalTime} | ${sourceContext.expectedEngagement} engagement expected | $${sourceContext.campaignBudget?.toLocaleString() || '1,000'} budget`}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Left Column - Form */}
                     <div className="space-y-6">
