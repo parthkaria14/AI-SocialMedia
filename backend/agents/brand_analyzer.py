@@ -43,6 +43,22 @@ class BrandAnalyzer:
             print(f"Groq also failed: {groq_error}")
             raise Exception(f"Both Gemini and Groq failed. Gemini: {gemini_error}, Groq: {groq_error}")
     
+    def _generate_content_stream(self, prompt: str):
+        """
+        Generate content using Gemini with streaming.
+        Yields text chunks as they are generated.
+        """
+        try:
+            response = self.model.generate_content(prompt, stream=True)
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+        except Exception as e:
+            print(f"Streaming failed: {e}")
+            # Fallback to non-streaming
+            result = self._generate_content(prompt)
+            yield result
+    
     def _parse_json_response(self, result: str):
         """Parse JSON from AI response, handling markdown code blocks."""
         if result.startswith('```json'):
