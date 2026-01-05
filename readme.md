@@ -1,108 +1,95 @@
 # AI Social Media Agency 🚀
 
-Complete AI-powered social media management platform that automates content creation, scheduling, analytics, and campaign management across Instagram, Twitter, and LinkedIn.
+An AI-powered social media management platform that helps brands create, schedule, and optimize their social media content using advanced AI agents.
 
-## Features ✨
+![AI Social Media Agency](https://img.shields.io/badge/AI-Powered-purple?style=for-the-badge)
+![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green?style=for-the-badge&logo=fastapi)
+![Python](https://img.shields.io/badge/Python-3.11+-blue?style=for-the-badge&logo=python)
 
-### Core Features
-- **🤖 AI Brand Analysis**: Automatically analyzes Instagram profiles to understand brand voice, audience, and content strategy
-- **✍️ AI Content Generation**: Creates captions, hashtags, and content ideas using Google Gemini
-- **🖼️ AI Image Generation**: Generates social media images using Pollinations.ai (free, unlimited)
-- **📊 Analytics Dashboard**: Tracks engagement, reach, and performance metrics with interactive charts
-- **📅 Content Scheduling**: Schedule posts for optimal engagement times
-- **📈 Strategy Recommendations**: AI-powered marketing strategy suggestions
-- **👥 Multi-Brand Management**: Manage multiple brands from one dashboard
+## ✨ Features
 
-### Campaign Management
-- **📢 Campaign Creation**: Create and manage marketing campaigns with objectives, budget, and timeline
-- **🎯 AI Ad Recommendations**: Get AI-powered platform recommendations based on objectives and budget
-- **📊 Campaign Analytics**: Track campaign performance with detailed metrics (CTR, CPC, ROAS)
-- **🔗 Post Linking**: Link Instagram posts to campaigns for attribution tracking
+### 🤖 AI Agents
+- **Brand Analyzer** - Analyzes Instagram profiles to understand brand voice, target audience, and content themes
+- **Content Generator** - Creates AI-powered content ideas, captions, and hashtag suggestions
+- **Campaign Agent** - Generates marketing strategies, analyzes campaigns, and recommends ad platforms
+- **Image Generator** - Creates high-quality AI images using Pollinations.ai
 
-### Competitor Intelligence
-- **👀 Competitor Analysis**: Analyze competitor profiles and identify opportunities
-- **📈 Trending Content**: Find trending topics and content in your niche
-- **💡 SWOT Analysis**: AI-generated strengths, weaknesses, opportunities, and threats
+### 📊 Dashboard
+- Multi-brand management with visual stats
+- Brand profile analysis with status indicators
+- Quick access to all brand features
 
-### Smart Agent Interconnectivity
-- **🔄 Seamless Flow**: Create content directly from ad recommendations or campaign strategies
-- **📋 Context Passing**: Campaign objectives and content tips automatically flow to content creation
-- **⚡ One-Click Actions**: Quick actions to create campaigns, content, or posts from any insight
+### 📝 Content Creation
+- AI-powered caption generation for any platform
+- Multi-platform caption optimization (Instagram, Twitter, LinkedIn)
+- AI image generation with custom prompts
+- Hashtag suggestions and scheduling
+- Download generated images directly
 
-## Tech Stack
+### 📈 Campaign Management
+- Create and track marketing campaigns
+- AI performance analysis
+- AI-generated campaign strategies with content calendars
+- Link Instagram posts to campaigns
 
-### Backend
-- **Framework**: FastAPI (Python 3.9+)
-- **AI**: Google Gemini 2.5 Flash, Groq (fallback)
-- **Database**: SQLAlchemy with SQLite/PostgreSQL
-- **Scraping**: Instaloader for Instagram data
+### 💡 Ad Recommendations
+- AI-powered platform recommendations
+- Budget allocation suggestions
+- Expected ROI calculations
+- One-click content creation from recommendations
+
+### 🔗 Agent Interconnectivity
+- Create content directly from ad recommendations
+- Generate posts from campaign strategy calendar
+- Context flows between all AI agents
+
+## 🛠️ Tech Stack
 
 ### Frontend
-- **Framework**: Next.js 16 (TypeScript) with React 19
-- **Styling**: Tailwind CSS v4 (dark theme with glassmorphism)
-- **Icons**: Lucide React
-- **Charts**: Recharts
+- **Next.js 16** with App Router
+- **React 19**
+- **Tailwind CSS v4** with custom dark theme
+- **Lucide React** for icons
+- **Recharts** for analytics visualization
 
-## UI/UX Features 🎨
+### Backend
+- **FastAPI** with Python 3.11+
+- **SQLAlchemy** with SQLite
+- **Google Gemini 2.5 Flash** for AI generation
+- **Pollinations.ai** for image generation
+- **Instaloader** for Instagram scraping
 
-- **Dark Theme**: Premium dark mode with glassmorphism design
-- **AI Loading Animations**: Engaging progress bars with step indicators for all AI operations
-- **Smooth Transitions**: Micro-animations and hover effects throughout
-- **Responsive Design**: Works on desktop, tablet, and mobile
-
-## Quick Start
+## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.9+
 - Node.js 18+
-- Gemini API Key (required)
-- Groq API Key (optional, for fallback)
+- Python 3.11+
+- Google Gemini API key
 
-### 1. Clone & Setup Backend
+### Backend Setup
 
 ```bash
-# Clone repository
-git clone https://github.com/parthkaria14/AI-SocialMedia.git
-cd AI-SocialMedia/project
+cd backend
 
 # Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
 
 # Install dependencies
-cd backend
 pip install -r requirements.txt
 
-# Setup environment variables
-cp .env.example .env
-# Edit .env and add your API keys
-```
+# Create .env file
+echo "GEMINI_API_KEY=your_gemini_api_key" > .env
 
-### 2. Configure Environment
-
-Create/edit `backend/.env`:
-
-```bash
-# Required
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# Optional (for fallback)
-GROQ_API_KEY=your_groq_api_key
-
-# Optional (for auto-posting)
-INSTAGRAM_USERNAME=your_instagram_username
-INSTAGRAM_PASSWORD=your_instagram_password
-```
-
-### 3. Start Backend
-
-```bash
-cd backend
+# Run the server
 python main.py
-# Runs on http://localhost:8000
 ```
 
-### 4. Setup & Start Frontend
+Backend runs at: `http://localhost:8000`
+
+### Frontend Setup
 
 ```bash
 cd frontend
@@ -110,145 +97,101 @@ cd frontend
 # Install dependencies
 npm install
 
-# Start development server
+# Create .env.local
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+
+# Run development server
 npm run dev
-# Runs on http://localhost:3000
 ```
 
-## Usage Guide
+Frontend runs at: `http://localhost:3000`
 
-### 1. Add a Brand
-1. Open http://localhost:3000
-2. Click "Add Brand"
-3. Enter brand name and Instagram handle
-4. Wait 1-2 minutes for AI analysis
-
-### 2. Generate Content
-1. Click on a brand
-2. Click "Generate Content" to get AI-powered content ideas
-3. Click "Create Post" on any idea to create content
-4. Generate AI image and caption
-
-### 3. Manage Campaigns
-1. Go to brand → Campaigns tab
-2. Create new campaign with objectives and budget
-3. Run AI Performance Analysis for insights
-4. Generate AI Strategy for content calendar
-5. Click "Create" on calendar items to make posts
-
-### 4. Get Ad Recommendations
-1. Go to brand → Ad Recommendations tab
-2. Set campaign objectives, budget, and target metrics
-3. Click "Get AI Recommendations"
-4. View platform recommendations with ROI estimates
-5. Click "Create Content" to start creating ads
-
-### 5. Analyze Competitors
-1. Go to brand → Competitors tab
-2. Add competitor Instagram handles
-3. Click "Analyze Competitors" for SWOT analysis
-4. Click "Find Trending Content" for trending topics
-
-## API Endpoints
-
-### Brands
-- `POST /brands/` - Create new brand
-- `GET /brands/` - List all brands
-- `GET /brands/{id}` - Get brand details
-- `POST /brands/{id}/sync` - Resync brand data
-
-### Content
-- `POST /content/generate` - Generate content ideas
-- `POST /content/caption` - Generate captions
-- `POST /content/caption-multiplatform` - Generate for all platforms
-- `POST /images/generate-single` - Generate AI image
-
-### Campaigns
-- `POST /campaigns/` - Create campaign
-- `GET /campaigns/{id}` - Get campaign details
-- `POST /campaigns/{id}/analyze` - Run AI analysis
-- `POST /campaigns/{id}/strategy` - Generate AI strategy
-
-### Ad Recommendations
-- `POST /ads/recommend` - Get AI platform recommendations
-
-### Competitors
-- `POST /competitors/analyze` - Analyze competitors
-- `POST /competitors/trending` - Get trending content
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 project/
 ├── backend/
-│   ├── agents/              # AI agents
-│   │   ├── brand_analyzer.py    # Content & caption generation
-│   │   ├── campaign_agent.py    # Campaign & ad recommendations
-│   │   └── competitor_analyzer.py
-│   ├── scrapers/            # Instagram scraper
-│   ├── generators/          # Image generator
-│   ├── models/              # Database models
-│   └── main.py              # FastAPI app
+│   ├── agents/
+│   │   ├── brand_analyzer.py    # Instagram analysis
+│   │   ├── content_agent.py     # Content generation
+│   │   └── campaign_agent.py    # Campaigns & ads
+│   ├── data/
+│   │   ├── generated_images/    # AI-generated images
+│   │   └── database.db          # SQLite database
+│   ├── scraping/
+│   │   └── insta_scraper.py     # Instagram scraper
+│   └── main.py                  # FastAPI application
+│
 ├── frontend/
-│   ├── app/                 # Next.js pages
-│   │   ├── brand/[id]/      # Brand pages
-│   │   │   ├── create/      # Create post
-│   │   │   ├── campaigns/   # Campaign management
-│   │   │   ├── analytics/   # Analytics dashboard
-│   │   │   ├── ad-recommendations/
-│   │   │   └── competitors/
-│   ├── components/          # React components
-│   │   ├── Loaders.tsx      # AI loading animations
-│   │   └── BrandNavBar.tsx  # Navigation
-│   └── lib/                 # API client
-└── README.md
+│   ├── app/
+│   │   ├── page.tsx             # Dashboard
+│   │   └── brand/[id]/
+│   │       ├── page.tsx         # Brand detail
+│   │       ├── create/          # Content creation
+│   │       ├── campaigns/       # Campaign management
+│   │       ├── analytics/       # Analytics view
+│   │       ├── ad-recommendations/  # AI ad suggestions
+│   │       └── competitors/     # Competitor analysis
+│   ├── components/
+│   │   ├── Loaders.tsx          # Loading components
+│   │   ├── BrandNavBar.tsx      # Navigation
+│   │   └── ContentGrid.tsx      # Content display
+│   └── lib/
+│       └── api.ts               # API client
 ```
 
-## Troubleshooting
+## 🎨 UI/UX Features
 
-### Instagram Scraping Issues
-- Instagram may rate limit. Wait 10-15 minutes and try again
-- Use public accounts for testing
-- Avoid scraping too frequently
+- **Dark Theme** - Modern dark UI with glassmorphism effects
+- **AI Loading Bars** - Engaging progress indicators with step-by-step feedback
+- **Smooth Animations** - Fade-in effects and hover transitions
+- **Responsive Design** - Works on all screen sizes
 
-### API Key Errors
-- Double-check `.env` file has correct keys
-- Get Gemini key from: https://aistudio.google.com/apikey
-- Restart backend after changing `.env`
+## 📝 API Endpoints
 
-### JSON Parse Errors
-- Campaign analysis/strategy generation includes robust JSON cleaning
-- If errors persist, try regenerating
+### Brands
+- `GET /brands/` - List all brands
+- `POST /brands/` - Create a brand
+- `GET /brands/{id}` - Get brand details
+- `POST /brands/{id}/sync` - Sync Instagram data
 
-### Database Reset
-```bash
-cd backend
-rm agency.db
-python main.py
+### Content
+- `POST /content/generate` - Generate content ideas
+- `POST /content/caption` - Generate captions
+- `POST /content/multiplatform-captions` - Multi-platform captions
+
+### Images
+- `POST /images/generate-single` - Generate AI image
+
+### Campaigns
+- `GET /campaigns/brand/{id}` - List brand campaigns
+- `POST /campaigns/` - Create campaign
+- `POST /campaigns/{id}/analyze` - AI analysis
+- `POST /campaigns/{id}/strategy` - AI strategy
+
+### Analytics
+- `GET /analytics/brand/{id}` - Get brand analytics
+
+## 🔐 Environment Variables
+
+### Backend (.env)
+```
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-## Free API Limits
+### Frontend (.env.local)
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-- **Gemini**: 15 requests/min (free tier)
-- **Groq**: 30 requests/min (fallback)
-- **Pollinations.ai**: Unlimited image generation
+## 📄 License
 
-## Contributing
+MIT License - feel free to use this project for learning and development.
 
-Final year project - feel free to fork and extend!
+## 🤝 Contributing
 
-## License
-
-MIT License
-
-## Credits
-
-Built with ❤️ using:
-- Google Gemini AI
-- Pollinations.ai
-- FastAPI
-- Next.js
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-**Made for Final Year Project by Parth Karia**
+Built with ❤️ using AI-powered development
