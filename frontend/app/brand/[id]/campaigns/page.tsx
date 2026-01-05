@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { getBrand, getBrandCampaigns, createCampaign, updateCampaignStatus, deleteCampaign, analyzeCampaign, generateCampaignStrategy, getInstagramPosts, getCampaignInstagramPosts, linkPostsToCampaign, unlinkPostsFromCampaign, InstagramPost } from '@/lib/api';
-import { Plus, Rocket, DollarSign, Target, Calendar, TrendingUp, Activity, Play, Pause, CheckCircle, Trash2, BarChart3, Lightbulb, X, Sparkles, Eye, Image, Link2, Unlink, Wand2, ArrowRight } from 'lucide-react';
+import { Plus, Rocket, DollarSign, Target, Calendar, TrendingUp, Activity, Play, Pause, CheckCircle, Trash2, BarChart3, Lightbulb, X, Sparkles, Eye, Image, Link2, Unlink } from 'lucide-react';
 import Link from 'next/link';
 import BrandNavBar from '@/components/BrandNavBar';
 
@@ -1038,34 +1038,6 @@ function CampaignDetailModal({ campaign, brandId, onClose, onRefresh }: any) {
                                                             }`}>
                                                             {item.expected_engagement} engagement
                                                         </span>
-                                                        <Link
-                                                            href={{
-                                                                pathname: `/brand/${brandId}/create`,
-                                                                query: {
-                                                                    title: item.content_idea,
-                                                                    description: item.content_idea,
-                                                                    contentType: item.content_type?.toLowerCase() || 'image',
-                                                                    platform: item.platform?.toLowerCase(),
-                                                                    context: JSON.stringify({
-                                                                        source: 'campaign-calendar',
-                                                                        campaignId: campaign.id,
-                                                                        campaignName: campaign.name,
-                                                                        day: item.day,
-                                                                        optimalTime: item.optimal_time,
-                                                                        expectedEngagement: item.expected_engagement,
-                                                                        contentType: item.content_type,
-                                                                        platform: item.platform,
-                                                                        contentIdea: item.content_idea,
-                                                                        campaignObjectives: campaign.objective,
-                                                                        campaignBudget: campaign.budget
-                                                                    })
-                                                                }
-                                                            }}
-                                                            className="flex items-center gap-1.5 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-2 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all"
-                                                        >
-                                                            <Wand2 className="w-4 h-4" />
-                                                            Create
-                                                        </Link>
                                                     </div>
                                                 ))}
                                             </div>

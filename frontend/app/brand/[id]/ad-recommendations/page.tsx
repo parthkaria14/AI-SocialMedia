@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getBrand, getAdRecommendations, createCampaign } from '@/lib/api';
-import { DollarSign, Target, TrendingUp, Zap, CheckCircle2, XCircle, Sparkles, ArrowRight, Rocket, BarChart3, Wand2 } from 'lucide-react';
+import { DollarSign, Target, TrendingUp, Zap, CheckCircle2, XCircle, Sparkles, ArrowRight, Rocket, BarChart3 } from 'lucide-react';
 import BrandNavBar from '@/components/BrandNavBar';
-import Link from 'next/link';
 
 export default function AdRecommendationsPage() {
     const params = useParams();
@@ -434,40 +433,16 @@ export default function AdRecommendationsPage() {
                                             </div>
                                         )}
 
-                                        {/* Action Buttons */}
-                                        <div className="flex flex-col sm:flex-row gap-3">
-                                            <button
-                                                onClick={() => handleCreateCampaignFromRecommendation(rec)}
-                                                disabled={creatingCampaign}
-                                                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 font-medium"
-                                            >
-                                                <Rocket className="w-5 h-5" />
-                                                Create Campaign
-                                            </button>
-                                            <Link
-                                                href={{
-                                                    pathname: `/brand/${brandId}/create`,
-                                                    query: {
-                                                        title: `${rec.platform} Ad Content`,
-                                                        description: rec.recommended_strategy?.content_recommendations?.[0] || `Create engaging content for ${rec.platform} advertising`,
-                                                        contentType: 'image',
-                                                        platform: rec.platform.toLowerCase(),
-                                                        context: JSON.stringify({
-                                                            source: 'ad-recommendations',
-                                                            expectedRoi: rec.expected_roi,
-                                                            budget: rec.recommended_budget,
-                                                            adTypes: rec.recommended_strategy?.ad_types,
-                                                            tips: rec.recommended_strategy?.content_recommendations
-                                                        })
-                                                    }
-                                                }}
-                                                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all font-medium"
-                                            >
-                                                <Wand2 className="w-5 h-5" />
-                                                Create Content for {rec.platform}
-                                                <ArrowRight className="w-4 h-4" />
-                                            </Link>
-                                        </div>
+                                        {/* Create Campaign Button */}
+                                        <button
+                                            onClick={() => handleCreateCampaignFromRecommendation(rec)}
+                                            disabled={creatingCampaign}
+                                            className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 font-medium"
+                                        >
+                                            <Rocket className="w-5 h-5" />
+                                            Create Campaign from This Recommendation
+                                            <ArrowRight className="w-5 h-5" />
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -484,27 +459,7 @@ export default function AdRecommendationsPage() {
                                     {recommendations.optimization_tips.map((tip: string, idx: number) => (
                                         <div key={idx} className="flex items-start gap-3 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                                             <Target className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                                            <div className="flex-1">
-                                                <p className="text-sm text-gray-700 mb-2">{tip}</p>
-                                                <Link
-                                                    href={{
-                                                        pathname: `/brand/${brandId}/create`,
-                                                        query: {
-                                                            title: 'Content from AI Tip',
-                                                            description: tip,
-                                                            contentType: 'image',
-                                                            context: JSON.stringify({
-                                                                source: 'optimization-tip',
-                                                                tip: tip
-                                                            })
-                                                        }
-                                                    }}
-                                                    className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 transition"
-                                                >
-                                                    <Wand2 className="w-3 h-3" />
-                                                    Create Post from This Tip
-                                                </Link>
-                                            </div>
+                                            <p className="text-sm text-gray-700">{tip}</p>
                                         </div>
                                     ))}
                                 </div>

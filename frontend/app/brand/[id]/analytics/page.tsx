@@ -7,9 +7,8 @@ import {
     LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadialBarChart, RadialBar
 } from 'recharts';
-import { TrendingUp, TrendingDown, Heart, MessageCircle, Users, Eye, Calendar, Zap, Target, Award, Sparkles, ArrowRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Heart, MessageCircle, Users, Eye, Calendar, Zap, Target, Award } from 'lucide-react';
 import BrandNavBar from '@/components/BrandNavBar';
-import Link from 'next/link';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -283,8 +282,8 @@ export default function AnalyticsPage() {
                             </div>
                             <div className="mt-4 text-center">
                                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${performanceScore >= 70 ? 'bg-green-100 text-green-700' :
-                                    performanceScore >= 40 ? 'bg-yellow-100 text-yellow-700' :
-                                        'bg-red-100 text-red-700'
+                                        performanceScore >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                                            'bg-red-100 text-red-700'
                                     }`}>
                                     {performanceScore >= 70 ? 'Excellent' : performanceScore >= 40 ? 'Good' : 'Needs Work'}
                                 </span>
@@ -378,7 +377,7 @@ export default function AnalyticsPage() {
                 </div>
 
                 {/* Quick Insights */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
                         <div className="flex items-center gap-3 mb-3">
                             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -413,38 +412,6 @@ export default function AnalyticsPage() {
                         </p>
                         <p className="text-sm text-gray-600">{contentTypeData[0]?.value || 0} posts in this format</p>
                     </div>
-
-                    {/* Optimize with AI - Agent Connection */}
-                    <Link
-                        href={{
-                            pathname: `/brand/${brandId}/ad-recommendations`,
-                            query: {
-                                context: JSON.stringify({
-                                    source: 'analytics',
-                                    performanceScore: performanceScore,
-                                    totalPosts: posts.length,
-                                    totalLikes: totalLikes,
-                                    totalComments: totalComments,
-                                    avgEngagement: avgEngagement,
-                                    topContentType: contentTypeData[0]?.name,
-                                    suggestedObjectives: performanceScore < 50 ? ['Brand Awareness', 'Engagement'] : ['Conversions', 'Traffic']
-                                })
-                            }
-                        }}
-                        className="bg-gradient-to-br from-orange-500 to-red-500 rounded-xl p-6 text-white hover:from-orange-600 hover:to-red-600 transition-all group"
-                    >
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                <Sparkles className="w-5 h-5" />
-                            </div>
-                            <h4 className="font-bold">Optimize with AI</h4>
-                        </div>
-                        <p className="text-sm text-white/90 mb-2">Get AI-powered ad recommendations based on your performance</p>
-                        <div className="flex items-center gap-1 text-sm font-medium group-hover:gap-2 transition-all">
-                            Get Recommendations
-                            <ArrowRight className="w-4 h-4" />
-                        </div>
-                    </Link>
                 </div>
             </main>
         </div>

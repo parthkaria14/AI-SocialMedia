@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { analyzeCompetitors, getTrendingContent } from '@/lib/api';
-import { Users, TrendingUp, Target, Lightbulb, AlertTriangle, Wand2, Sparkles, ArrowRight } from 'lucide-react';
+import { Users, TrendingUp, Target, Lightbulb, AlertTriangle } from 'lucide-react';
 import BrandNavBar from '@/components/BrandNavBar';
-import Link from 'next/link';
 
 export default function CompetitorAnalysisPage() {
     const params = useParams();
@@ -275,7 +274,7 @@ export default function CompetitorAnalysisPage() {
                                     <Lightbulb className="w-5 h-5 text-yellow-600" />
                                     <h3 className="text-lg font-bold text-gray-900">Strategic Recommendations</h3>
                                 </div>
-                                <div className="space-y-4 mb-6">
+                                <div className="space-y-4">
                                     {analysis.analysis.recommendations.map((rec: any, idx: number) => (
                                         <div key={idx} className="border-l-4 border-blue-600 pl-4 py-2">
                                             <h4 className="font-semibold text-gray-900 capitalize mb-1">{rec.area}</h4>
@@ -284,28 +283,6 @@ export default function CompetitorAnalysisPage() {
                                         </div>
                                     ))}
                                 </div>
-
-                                {/* Create Competitive Campaign Button */}
-                                <Link
-                                    href={{
-                                        pathname: `/brand/${brandId}/campaigns`,
-                                        query: {
-                                            createFromCompetitor: 'true',
-                                            context: JSON.stringify({
-                                                source: 'competitor-analysis',
-                                                recommendations: analysis.analysis.recommendations.slice(0, 3),
-                                                strengths: analysis.analysis.strengths?.slice(0, 2),
-                                                opportunities: analysis.analysis.opportunities?.slice(0, 2),
-                                                competitors: competitorHandles.filter((h: string) => h.trim())
-                                            })
-                                        }
-                                    }}
-                                    className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-medium"
-                                >
-                                    <Sparkles className="w-5 h-5" />
-                                    Create Competitive Campaign from Insights
-                                    <ArrowRight className="w-4 h-4" />
-                                </Link>
                             </div>
                         )}
                     </div>
@@ -320,32 +297,11 @@ export default function CompetitorAnalysisPage() {
                                 <h3 className="text-lg font-bold text-gray-900 mb-4">Trending Topics</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {trending.trends.trending_topics?.map((topic: string, idx: number) => (
-                                        <div key={idx} className="group relative">
-                                            <span className="bg-purple-100 text-purple-800 px-4 py-2 rounded-full font-medium inline-block">
-                                                {topic}
-                                            </span>
-                                            <Link
-                                                href={{
-                                                    pathname: `/brand/${brandId}/create`,
-                                                    query: {
-                                                        title: `${topic} Content`,
-                                                        description: `Create engaging content about ${topic} - trending among competitors`,
-                                                        contentType: 'image',
-                                                        context: JSON.stringify({
-                                                            source: 'competitor-trending',
-                                                            topic: topic
-                                                        })
-                                                    }
-                                                }}
-                                                className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                                                title="Use as content idea"
-                                            >
-                                                <Wand2 className="w-3 h-3" />
-                                            </Link>
-                                        </div>
+                                        <span key={idx} className="bg-purple-100 text-purple-800 px-4 py-2 rounded-full font-medium">
+                                            {topic}
+                                        </span>
                                     ))}
                                 </div>
-                                <p className="text-sm text-gray-500 mt-3">Hover over a topic and click the wand to create content</p>
                             </div>
                         )}
 
@@ -363,31 +319,9 @@ export default function CompetitorAnalysisPage() {
                                                 </span>
                                             </div>
                                             <p className="text-gray-700 mb-3">{post.caption?.slice(0, 150)}...</p>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex gap-4 text-sm text-gray-600">
-                                                    <span>❤️ {post.likes?.toLocaleString()}</span>
-                                                    <span>💬 {post.comments?.toLocaleString()}</span>
-                                                </div>
-                                                <Link
-                                                    href={{
-                                                        pathname: `/brand/${brandId}/create`,
-                                                        query: {
-                                                            title: 'Inspired by Top Performer',
-                                                            description: post.caption?.slice(0, 200) || 'Create similar high-performing content',
-                                                            contentType: 'image',
-                                                            context: JSON.stringify({
-                                                                source: 'competitor-top-post',
-                                                                originalEngagement: post.engagement_rate,
-                                                                likes: post.likes,
-                                                                comments: post.comments
-                                                            })
-                                                        }
-                                                    }}
-                                                    className="flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-700 bg-purple-50 px-3 py-1.5 rounded-lg transition"
-                                                >
-                                                    <Sparkles className="w-4 h-4" />
-                                                    Create Similar Post
-                                                </Link>
+                                            <div className="flex gap-4 text-sm text-gray-600">
+                                                <span>❤️ {post.likes?.toLocaleString()}</span>
+                                                <span>💬 {post.comments?.toLocaleString()}</span>
                                             </div>
                                         </div>
                                     ))}
