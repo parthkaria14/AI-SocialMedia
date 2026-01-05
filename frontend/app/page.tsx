@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getBrands, deleteBrand, type Brand } from '@/lib/api';
-import { Plus, TrendingUp, Users, FileText, Trash2 } from 'lucide-react';
+import { getBrands, deleteBrand } from '@/lib/api';
+import { Plus, Sparkles, Activity, Trash2, ArrowRight, Layers, Instagram } from 'lucide-react';
 import Link from 'next/link';
 import CreateBrandModal from '@/components/CreateBrandModal';
+import { RingLoader } from '@/components/Loaders';
 
 export default function Dashboard() {
-  const [brands, setBrands] = useState<Brand[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [deletingBrand, setDeletingBrand] = useState<number | null>(null);
 
   useEffect(() => {
     loadBrands();
@@ -26,198 +28,181 @@ export default function Dashboard() {
     }
   };
 
-  const handleBrandCreated = () => {
-    setShowCreateModal(false);
-    loadBrands();
-  };
-
-  const handleDeleteBrand = async (brandId: number, brandName: string) => {
-    if (!confirm(`Are you sure you want to delete "${brandName}"? This will delete all posts, analytics, and strategies.`)) {
-      return;
-    }
-
+  const handleDeleteBrand = async (brandId: number) => {
+    if (!confirm('Delete this brand?')) return;
+    setDeletingBrand(brandId);
     try {
       await deleteBrand(brandId);
-      loadBrands();
+      await loadBrands();
     } catch (error) {
       alert('Failed to delete brand');
+    } finally {
+      setDeletingBrand(null);
     }
   };
+
+  // Check if brand has been analyzed (brand_profile is populated)
+  const isAnalyzed = (brand: any) => {
+    return brand.brand_profile && Object.keys(brand.brand_profile).length > 0;
+  };
+
+  // Count analyzed brands
+  const analyzedCount = brands.filter(isAnalyzed).length;
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-6">
+        <RingLoader size={56} />
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="text-[var(--text-secondary)] text-sm">Loading your brands...</p>
+          <div className="w-48 mt-4">
+            <div className="loader-wave" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900">
-              AI Social Media Agency
-            </h1>
+    <div className="min-h-screen">
+      {/* Header - Clean and Clear */}
+      <header className="sticky top-0 z-50 border-b border-[var(--glass-border)] bg-[var(--bg-primary)]/80 backdrop-blur-xl">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-white">Social AI</h1>
+                <p className="text-xs text-[var(--text-muted)]">Brand Management</p>
+              </div>
+            </div>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
             >
-              <Plus className="w-5 h-5" />
-              Add Brand
+              <Plus className="w-4 h-4" />
+              New Brand
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        {/* Stats - Simple Numbers */}
+        <div className="grid grid-cols-2 gap-4 mb-10">
+          <div className="bg-[var(--bg-secondary)] rounded-xl p-5 border border-[var(--glass-border)]">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                <Layers className="w-4 h-4 text-violet-400" />
+              </div>
+              <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Total Brands</span>
+            </div>
+            <p className="text-3xl font-bold text-white">{brands.length}</p>
+          </div>
+
+          <div className="bg-[var(--bg-secondary)] rounded-xl p-5 border border-[var(--glass-border)]">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <Activity className="w-4 h-4 text-emerald-400" />
+              </div>
+              <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Analyzed</span>
+            </div>
+            <p className="text-3xl font-bold text-white">{analyzedCount}</p>
+          </div>
+        </div>
+
+        {/* Section Header */}
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-base font-medium text-white">Your Brands</h2>
+          <span className="text-sm text-[var(--text-muted)]">{brands.length} total</span>
+        </div>
+
+        {/* Brands Grid */}
         {brands.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              No Brands Yet
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Get started by adding your first brand to manage
+          <div className="bg-[var(--bg-secondary)] rounded-2xl p-16 text-center border border-[var(--glass-border)]">
+            <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mx-auto mb-5">
+              <Layers className="w-8 h-8 text-violet-400" />
+            </div>
+            <h3 className="text-lg font-medium text-white mb-2">No brands yet</h3>
+            <p className="text-[var(--text-secondary)] mb-6 text-sm max-w-sm mx-auto">
+              Create your first brand to start generating AI-powered content
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
             >
-              Add Your First Brand
+              <Plus className="w-4 h-4" />
+              Create Brand
             </button>
           </div>
         ) : (
-          <>
-            {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Brands</p>
-                    <p className="text-3xl font-bold text-gray-900">{brands.length}</p>
-                  </div>
-                  <Users className="w-12 h-12 text-blue-600" />
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Active Brands</p>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {brands.filter(b => b.brand_profile).length}
-                    </p>
-                  </div>
-                  <TrendingUp className="w-12 h-12 text-green-600" />
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Content Ready</p>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {brands.filter(b => b.brand_profile).length}
-                    </p>
-                  </div>
-                  <FileText className="w-12 h-12 text-purple-600" />
-                </div>
-              </div>
-            </div>
-
-            {/* Brands Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {brands.map((brand) => (
-                <div
-                  key={brand.id}
-                  className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition relative"
-                >
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDeleteBrand(brand.id, brand.name);
-                    }}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition"
-                    title="Delete brand"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-
-                  <Link href={`/brand/${brand.id}`} className="block">
-                    <div className="flex items-start justify-between mb-4 pr-8">
-                      <div>
-                        <h3 className="text-xl font-semibold text-gray-900">
-                          {brand.name}
-                        </h3>
-                        <p className="text-sm text-gray-600">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {brands.map((brand) => (
+              <div
+                key={brand.id}
+                className="bg-[var(--bg-secondary)] rounded-xl p-5 border border-[var(--glass-border)] hover:border-[var(--glass-border-hover)] transition-all group"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 flex items-center justify-center text-violet-400 font-semibold text-sm">
+                      {brand.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-white">{brand.name}</h3>
+                      {brand.instagram_handle && (
+                        <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+                          <Instagram className="w-3 h-3" />
                           @{brand.instagram_handle}
                         </p>
-                      </div>
-                      {brand.brand_profile ? (
-                        <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
-                          Analyzing
-                        </span>
                       )}
                     </div>
-
-                    {brand.brand_profile && (
-                      <div className="space-y-2">
-                        <div className="text-sm">
-                          <span className="text-gray-600">Voice:</span>
-                          <span className="ml-2 font-medium capitalize">
-                            {brand.brand_profile.brand_voice || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="text-sm">
-                          <span className="text-gray-600">Audience:</span>
-                          <span className="ml-2 font-medium">
-                            {(() => {
-                              const audience = brand.brand_profile.target_audience;
-                              if (typeof audience === 'string') {
-                                return audience.slice(0, 40);
-                              } else if (audience && typeof audience === 'object') {
-                                // Handle object case (demographics, interests)
-                                const demo = audience.demographics || '';
-                                const interests = audience.interests || '';
-                                const text = demo || interests || 'Various audiences';
-                                return typeof text === 'string' ? text.slice(0, 40) : 'Various audiences';
-                              }
-                              return 'N/A';
-                            })()}...
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="mt-4 pt-4 border-t">
-                      <span className="text-blue-600 hover:text-blue-700 font-medium text-sm">
-                        Manage Brand →
-                      </span>
-                    </div>
-                  </Link>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteBrand(brand.id)}
+                    disabled={deletingBrand === brand.id}
+                    className="p-2 rounded-lg text-[var(--text-muted)] hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 className={`w-4 h-4 ${deletingBrand === brand.id ? 'animate-pulse' : ''}`} />
+                  </button>
                 </div>
-              ))}
-            </div>
-          </>
+
+                {/* Show analysis status */}
+                <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
+                  {isAnalyzed(brand) ? (
+                    <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      ✓ Analyzed
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      Pending analysis
+                    </span>
+                  )}
+                </div>
+
+                <Link
+                  href={`/brand/${brand.id}`}
+                  className="flex items-center justify-between w-full px-4 py-2.5 rounded-lg bg-[var(--bg-tertiary)] text-sm text-[var(--text-secondary)] hover:text-white hover:bg-violet-600/20 transition-all"
+                >
+                  <span>Manage Brand</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            ))}
+          </div>
         )}
       </main>
 
-      {/* Create Brand Modal */}
+      {/* Create Modal */}
       {showCreateModal && (
         <CreateBrandModal
           onClose={() => setShowCreateModal(false)}
-          onSuccess={handleBrandCreated}
+          onSuccess={() => {
+            setShowCreateModal(false);
+            loadBrands();
+          }}
         />
       )}
     </div>

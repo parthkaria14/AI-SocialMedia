@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getBrand, generateContent, getBrandAnalytics, syncBrand, getBrandPosts } from '@/lib/api';
-import { RefreshCw, Sparkles, Calendar, Target, Activity, CheckCircle, Lightbulb, X, Eye } from 'lucide-react';
+import { RefreshCw, Sparkles, Calendar, Target, Activity, CheckCircle, Lightbulb, Plus, ArrowRight, Zap, Image, Video, Layout } from 'lucide-react';
 import Link from 'next/link';
 import BrandNavBar from '@/components/BrandNavBar';
+import { RingLoader } from '@/components/Loaders';
 
 export default function BrandDetailPage() {
     const params = useParams();
@@ -70,10 +71,13 @@ export default function BrandDetailPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="min-h-screen flex flex-col items-center justify-center gap-6">
+                <RingLoader size={56} />
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading brand...</p>
+                    <p className="text-[var(--text-secondary)] text-sm">Loading brand...</p>
+                    <div className="w-48 mt-4">
+                        <div className="loader-wave" />
+                    </div>
                 </div>
             </div>
         );
@@ -82,9 +86,12 @@ export default function BrandDetailPage() {
     if (!brand) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Brand Not Found</h2>
-                    <Link href="/" className="text-blue-600 hover:text-blue-700">
+                <div className="text-center animate-fadeIn">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center">
+                        <Target className="w-10 h-10 text-red-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-3">Brand Not Found</h2>
+                    <Link href="/" className="text-purple-400 hover:text-purple-300 inline-flex items-center gap-2">
                         ← Back to Dashboard
                     </Link>
                 </div>
@@ -94,31 +101,39 @@ export default function BrandDetailPage() {
 
     const brandProfile = brand.brand?.brand_profile;
 
+    const contentTypeIcon = (type: string) => {
+        switch (type) {
+            case 'carousel': return <Layout className="w-4 h-4" />;
+            case 'video': case 'reel': return <Video className="w-4 h-4" />;
+            default: return <Image className="w-4 h-4" />;
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
             {/* Shared Navigation Bar */}
             <BrandNavBar brandId={brandId} brandName={brand.brand?.name} />
 
             {/* Action Bar */}
-            <div className="bg-white border-b">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="glass-card border-x-0 border-t-0 rounded-none">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex items-center justify-between">
-                        <p className="text-gray-600">@{brand.brand?.instagram_handle}</p>
+                        <p className="text-gray-400">@{brand.brand?.instagram_handle}</p>
                         <div className="flex gap-3">
                             <button
                                 onClick={handleSync}
                                 disabled={syncing}
-                                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+                                className="group flex items-center gap-2 px-4 py-2 border border-white/10 rounded-xl hover:bg-white/5 transition-all disabled:opacity-50"
                             >
-                                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                                {syncing ? 'Syncing...' : 'Sync'}
+                                <RefreshCw className={`w-4 h-4 text-gray-400 group-hover:text-white ${syncing ? 'animate-spin' : ''}`} />
+                                <span className="text-gray-300">{syncing ? 'Syncing...' : 'Sync'}</span>
                             </button>
                             <button
                                 onClick={handleGenerateContent}
                                 disabled={generatingContent || !brandProfile}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                                className="group flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50 font-medium"
                             >
-                                <Sparkles className="w-4 h-4" />
+                                <Sparkles className={`w-4 h-4 ${generatingContent ? 'animate-pulse' : ''}`} />
                                 {generatingContent ? 'Generating...' : 'Generate Content'}
                             </button>
                         </div>
@@ -127,26 +142,32 @@ export default function BrandDetailPage() {
             </div>
 
             {/* Sub-tabs for Overview/Content */}
-            <div className="bg-white border-b">
+            <div className="border-b border-white/5">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex gap-6">
+                    <div className="flex gap-1">
                         <button
                             onClick={() => setActiveTab('overview')}
-                            className={`py-3 border-b-2 font-medium text-sm transition ${activeTab === 'overview'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-600 hover:text-gray-900'
+                            className={`relative py-4 px-6 font-medium text-sm transition-all ${activeTab === 'overview'
+                                ? 'text-white'
+                                : 'text-gray-500 hover:text-gray-300'
                                 }`}
                         >
                             Profile Overview
+                            {activeTab === 'overview' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 to-pink-500" />
+                            )}
                         </button>
                         <button
                             onClick={() => setActiveTab('content')}
-                            className={`py-3 border-b-2 font-medium text-sm transition ${activeTab === 'content'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-600 hover:text-gray-900'
+                            className={`relative py-4 px-6 font-medium text-sm transition-all ${activeTab === 'content'
+                                ? 'text-white'
+                                : 'text-gray-500 hover:text-gray-300'
                                 }`}
                         >
                             Content Ideas
+                            {activeTab === 'content' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 to-pink-500" />
+                            )}
                         </button>
                     </div>
                 </div>
@@ -155,31 +176,40 @@ export default function BrandDetailPage() {
             {/* Content */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {activeTab === 'overview' && (
-                    <div className="space-y-6">
+                    <div className="space-y-6 animate-fadeIn">
                         {!brandProfile ? (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                                <p className="text-yellow-800">
-                                    Brand analysis in progress... This usually takes 1-2 minutes.
+                            <div className="glass-card p-8 text-center">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center animate-pulse">
+                                    <Activity className="w-8 h-8 text-yellow-400" />
+                                </div>
+                                <p className="text-yellow-400 font-medium mb-2">
+                                    Brand analysis in progress...
                                 </p>
+                                <p className="text-gray-400 text-sm mb-4">This usually takes 1-2 minutes.</p>
                                 <button
                                     onClick={() => loadBrandData()}
-                                    className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+                                    className="text-purple-400 hover:text-purple-300 font-medium text-sm"
                                 >
                                     Refresh Status
                                 </button>
                             </div>
                         ) : (
                             <>
-                                <div className="bg-white rounded-lg shadow p-6">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Brand Profile</h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
-                                            <h3 className="font-semibold text-gray-700 mb-2">Brand Voice</h3>
-                                            <p className="text-gray-900 capitalize">{brandProfile.brand_voice}</p>
+                                <div className="glass-card p-6">
+                                    <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                                            <Target className="w-5 h-5 text-purple-400" />
                                         </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-700 mb-2">Target Audience</h3>
-                                            <p className="text-gray-900">
+                                        Brand Profile
+                                    </h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                                            <h3 className="font-medium text-gray-400 mb-2 text-sm">Brand Voice</h3>
+                                            <p className="text-white text-lg capitalize">{brandProfile.brand_voice}</p>
+                                        </div>
+                                        <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                                            <h3 className="font-medium text-gray-400 mb-2 text-sm">Target Audience</h3>
+                                            <p className="text-white">
                                                 {(() => {
                                                     const audience = brandProfile.target_audience;
                                                     if (typeof audience === 'string') {
@@ -193,8 +223,8 @@ export default function BrandDetailPage() {
                                                 })()}
                                             </p>
                                         </div>
-                                        <div className="md:col-span-2">
-                                            <h3 className="font-semibold text-gray-700 mb-2">Content Themes</h3>
+                                        <div className="md:col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
+                                            <h3 className="font-medium text-gray-400 mb-3 text-sm">Content Themes</h3>
                                             <div className="flex flex-wrap gap-2">
                                                 {(() => {
                                                     const themes = brandProfile.content_themes;
@@ -202,56 +232,71 @@ export default function BrandDetailPage() {
                                                         return themes.map((theme: string, idx: number) => (
                                                             <span
                                                                 key={idx}
-                                                                className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
+                                                                className="badge badge-purple"
                                                             >
                                                                 {theme}
                                                             </span>
                                                         ));
                                                     } else if (typeof themes === 'string') {
                                                         return (
-                                                            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                                                            <span className="badge badge-purple">
                                                                 {themes}
                                                             </span>
                                                         );
                                                     }
-                                                    return <span className="text-gray-600 text-sm">No themes available</span>;
+                                                    return <span className="text-gray-500 text-sm">No themes available</span>;
                                                 })()}
                                             </div>
                                         </div>
-                                        <div className="md:col-span-2">
-                                            <h3 className="font-semibold text-gray-700 mb-2">Content Pillars</h3>
-                                            <ul className="list-disc list-inside space-y-1">
+                                        <div className="md:col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
+                                            <h3 className="font-medium text-gray-400 mb-3 text-sm">Content Pillars</h3>
+                                            <ul className="space-y-2">
                                                 {(() => {
                                                     const pillars = brandProfile.content_pillars;
                                                     if (Array.isArray(pillars)) {
                                                         return pillars.map((pillar: string, idx: number) => (
-                                                            <li key={idx} className="text-gray-900">{pillar}</li>
+                                                            <li key={idx} className="flex items-start gap-3">
+                                                                <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                                                                <span className="text-gray-300">{pillar}</span>
+                                                            </li>
                                                         ));
                                                     } else if (typeof pillars === 'string') {
-                                                        return <li className="text-gray-900">{pillars}</li>;
+                                                        return (
+                                                            <li className="flex items-start gap-3">
+                                                                <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
+                                                                <span className="text-gray-300">{pillars}</span>
+                                                            </li>
+                                                        );
                                                     }
-                                                    return <li className="text-gray-600">No pillars defined</li>;
+                                                    return <li className="text-gray-500">No pillars defined</li>;
                                                 })()}
                                             </ul>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="bg-white rounded-lg shadow p-6">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Posts</h2>
+                                <div className="glass-card p-6">
+                                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
+                                            <Calendar className="w-5 h-5 text-blue-400" />
+                                        </div>
+                                        Recent Posts
+                                    </h2>
                                     {brand.recent_posts?.length > 0 ? (
-                                        <div className="space-y-4">
+                                        <div className="space-y-3">
                                             {brand.recent_posts.slice(0, 5).map((post: any) => (
-                                                <div key={post.id} className="border-l-4 border-blue-600 pl-4 py-2">
-                                                    <p className="text-gray-900">{post.caption?.slice(0, 100)}...</p>
-                                                    <p className="text-sm text-gray-600 mt-1">
-                                                        {post.platform} • {post.status}
-                                                    </p>
+                                                <div key={post.id} className="p-4 rounded-xl bg-white/5 border-l-2 border-purple-500 hover:bg-white/[0.07] transition-colors">
+                                                    <p className="text-gray-300 line-clamp-2">{post.caption?.slice(0, 100)}...</p>
+                                                    <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
+                                                        <span className="capitalize">{post.platform}</span>
+                                                        <span>•</span>
+                                                        <span className="capitalize">{post.status}</span>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-gray-600">No posts yet</p>
+                                        <p className="text-gray-500">No posts yet</p>
                                     )}
                                 </div>
                             </>
@@ -260,56 +305,56 @@ export default function BrandDetailPage() {
                 )}
 
                 {activeTab === 'content' && (
-                    <div className="space-y-8">
+                    <div className="space-y-8 animate-fadeIn">
                         {/* Saved Posts Section */}
                         <div>
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-xl font-bold text-gray-900">Your Posts</h2>
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold text-white">Your Posts</h2>
                                 <Link
                                     href={`/brand/${brandId}/create`}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                                    className="group flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/25 transition-all"
                                 >
-                                    + Create New Post
+                                    <Plus className="w-4 h-4" />
+                                    Create New Post
                                 </Link>
                             </div>
 
                             {savedPosts.length === 0 ? (
-                                <div className="bg-white rounded-lg shadow p-8 text-center">
-                                    <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Posts Yet</h3>
-                                    <p className="text-gray-600 text-sm">
+                                <div className="glass-card p-12 text-center">
+                                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                                        <Calendar className="w-8 h-8 text-purple-400 animate-float" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-2">No Posts Yet</h3>
+                                    <p className="text-gray-400 text-sm">
                                         Create your first post to see it here
                                     </p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {savedPosts.map((post: any) => (
-                                        <div key={post.id} className="bg-white rounded-lg shadow overflow-hidden group hover:shadow-lg transition">
+                                    {savedPosts.map((post: any, index: number) => (
+                                        <div key={post.id} className="group glass-card overflow-hidden hover:border-white/15 transition-all duration-300 animate-fadeIn" style={{ animationDelay: `${index * 0.1}s` }}>
                                             {/* Post Image */}
                                             {post.media_urls && post.media_urls.length > 0 ? (
-                                                <div className="aspect-square bg-gray-100 relative">
+                                                <div className="aspect-square bg-gray-900 relative overflow-hidden">
                                                     <img
                                                         src={post.media_urls[0]}
                                                         alt="Post image"
-                                                        className="w-full h-full object-cover"
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                                     />
-                                                    {/* Status Badge */}
-                                                    <span className={`absolute top-2 right-2 text-xs px-2 py-1 rounded-full font-medium ${post.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                                                        post.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                                                            post.status === 'posted' ? 'bg-green-100 text-green-800' :
-                                                                'bg-gray-100 text-gray-800'
+                                                    <span className={`absolute top-3 right-3 text-xs px-3 py-1 rounded-full font-semibold backdrop-blur-sm ${post.status === 'draft' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                                                        post.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                                            post.status === 'posted' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                                                'bg-gray-500/20 text-gray-400 border border-gray-500/30'
                                                         }`}>
                                                         {post.status}
                                                     </span>
                                                 </div>
                                             ) : (
-                                                <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center relative">
-                                                    <Calendar className="w-16 h-16 text-gray-400" />
-                                                    {/* Status Badge */}
-                                                    <span className={`absolute top-2 right-2 text-xs px-2 py-1 rounded-full font-medium ${post.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                                                        post.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                                                            post.status === 'posted' ? 'bg-green-100 text-green-800' :
-                                                                'bg-gray-100 text-gray-800'
+                                                <div className="aspect-square bg-gradient-to-br from-purple-500/10 to-pink-500/10 flex items-center justify-center relative">
+                                                    <Calendar className="w-16 h-16 text-gray-600" />
+                                                    <span className={`absolute top-3 right-3 text-xs px-3 py-1 rounded-full font-semibold ${post.status === 'draft' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                        post.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400' :
+                                                            'bg-green-500/20 text-green-400'
                                                         }`}>
                                                         {post.status}
                                                     </span>
@@ -320,11 +365,11 @@ export default function BrandDetailPage() {
                                             <div className="p-4">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <span className="text-xs text-gray-500 capitalize">{post.platform}</span>
-                                                    <span className="text-xs text-gray-300">•</span>
+                                                    <span className="text-xs text-gray-600">•</span>
                                                     <span className="text-xs text-gray-500 capitalize">{post.content_type}</span>
                                                 </div>
 
-                                                <p className="text-gray-900 text-sm line-clamp-3 mb-3">
+                                                <p className="text-gray-300 text-sm line-clamp-3 mb-3">
                                                     {post.caption || 'No caption'}
                                                 </p>
 
@@ -332,12 +377,12 @@ export default function BrandDetailPage() {
                                                 {post.hashtags && post.hashtags.length > 0 && (
                                                     <div className="flex flex-wrap gap-1 mb-3">
                                                         {post.hashtags.slice(0, 3).map((tag: string, i: number) => (
-                                                            <span key={i} className="text-xs text-blue-600">
+                                                            <span key={i} className="text-xs text-purple-400">
                                                                 #{tag}
                                                             </span>
                                                         ))}
                                                         {post.hashtags.length > 3 && (
-                                                            <span className="text-xs text-gray-400">
+                                                            <span className="text-xs text-gray-500">
                                                                 +{post.hashtags.length - 3} more
                                                             </span>
                                                         )}
@@ -360,36 +405,42 @@ export default function BrandDetailPage() {
 
                         {/* AI Content Ideas Section */}
                         <div>
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">AI Content Ideas</h2>
+                            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                                <Lightbulb className="w-5 h-5 text-yellow-400" />
+                                AI Content Ideas
+                            </h2>
                             {contentIdeas.length === 0 ? (
-                                <div className="bg-white rounded-lg shadow p-8 text-center">
-                                    <Sparkles className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Content Ideas Yet</h3>
-                                    <p className="text-gray-600 text-sm mb-4">
-                                        Click &quot;Generate Content&quot; to create AI-powered content ideas
+                                <div className="glass-card p-12 text-center">
+                                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center">
+                                        <Sparkles className="w-8 h-8 text-yellow-400 animate-float" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-2">No Content Ideas Yet</h3>
+                                    <p className="text-gray-400 text-sm mb-4">
+                                        Click "Generate Content" to create AI-powered content ideas
                                     </p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {contentIdeas.map((idea, idx) => (
-                                        <div key={idx} className="bg-white rounded-lg shadow p-6">
-                                            <div className="flex items-start justify-between mb-2">
-                                                <h3 className="text-lg font-semibold text-gray-900">
+                                        <div key={idx} className="glass-card p-6 hover:border-white/15 transition-all animate-fadeIn" style={{ animationDelay: `${idx * 0.1}s` }}>
+                                            <div className="flex items-start justify-between mb-3">
+                                                <h3 className="text-lg font-bold text-white pr-4">
                                                     {idea.title}
                                                 </h3>
-                                                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${idea.content_type === 'image' ? 'bg-blue-100 text-blue-800' :
-                                                    idea.content_type === 'carousel' ? 'bg-purple-100 text-purple-800' :
-                                                        idea.content_type === 'video' || idea.content_type === 'reel' ? 'bg-red-100 text-red-800' :
-                                                            'bg-gray-100 text-gray-800'
+                                                <span className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-semibold flex-shrink-0 ${idea.content_type === 'image' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                                    idea.content_type === 'carousel' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                                                        idea.content_type === 'video' || idea.content_type === 'reel' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                                            'bg-gray-500/20 text-gray-400 border border-gray-500/30'
                                                     }`}>
+                                                    {contentTypeIcon(idea.content_type)}
                                                     {idea.content_type}
                                                 </span>
                                             </div>
-                                            <p className="text-gray-600 mb-4">{idea.description}</p>
+                                            <p className="text-gray-400 mb-4">{idea.description}</p>
                                             <div className="flex items-center justify-between">
                                                 <div className="flex flex-wrap gap-1">
                                                     {idea.hashtag_suggestions?.slice(0, 3).map((tag: string, i: number) => (
-                                                        <span key={i} className="text-xs text-blue-600">
+                                                        <span key={i} className="text-xs text-purple-400">
                                                             #{tag}
                                                         </span>
                                                     ))}
@@ -405,9 +456,10 @@ export default function BrandDetailPage() {
                                                             hashtags: JSON.stringify(idea.hashtag_suggestions || [])
                                                         }
                                                     }}
-                                                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                                                    className="flex items-center gap-1 text-purple-400 hover:text-purple-300 font-medium text-sm group"
                                                 >
-                                                    Create Post →
+                                                    Create Post
+                                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                                 </Link>
                                             </div>
                                         </div>

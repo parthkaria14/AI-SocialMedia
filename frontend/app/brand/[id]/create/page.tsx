@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { getBrand, generateCaption, generateMultiplatformCaptions, generateSingleImage, createPost } from '@/lib/api';
-import { ArrowLeft, Wand2, Image as ImageIcon, Calendar, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Wand2, Image as ImageIcon, Calendar, Copy, Check, Sparkles, Instagram, Twitter, Linkedin, Zap } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CreatePostPage() {
@@ -36,7 +36,6 @@ export default function CreatePostPage() {
     useEffect(() => {
         loadBrand();
 
-        // Load data from query params
         const title = searchParams.get('title');
         const description = searchParams.get('description');
         const contentType = searchParams.get('contentType');
@@ -186,26 +185,37 @@ export default function CreatePostPage() {
         }
     };
 
+    const platformConfig = {
+        instagram: { icon: Instagram, gradient: 'from-pink-500 via-purple-500 to-orange-500', color: 'text-pink-400' },
+        twitter: { icon: Twitter, gradient: 'from-blue-400 to-blue-600', color: 'text-blue-400' },
+        linkedin: { icon: Linkedin, gradient: 'from-blue-600 to-blue-800', color: 'text-blue-500' },
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="loading-spinner"></div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
             {/* Header */}
-            <header className="bg-white shadow-sm">
+            <header className="glass-card border-x-0 border-t-0 rounded-none sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex items-center gap-4">
-                        <Link href={`/brand/${brandId}`} className="text-gray-600 hover:text-gray-900">
-                            <ArrowLeft className="w-6 h-6" />
+                        <Link href={`/brand/${brandId}`} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all">
+                            <ArrowLeft className="w-5 h-5" />
                         </Link>
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Create Post</h1>
-                            <p className="text-gray-600">{brand?.brand?.name}</p>
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                <Sparkles className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold text-white">Create Post</h1>
+                                <p className="text-sm text-gray-500">{brand?.brand?.name}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -217,124 +227,132 @@ export default function CreatePostPage() {
                     {/* Left Column - Form */}
                     <div className="space-y-6">
                         {/* Platform Selection */}
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4">Platform</h3>
-                            <div className="grid grid-cols-3 gap-3 mb-3">
-                                {['instagram', 'twitter', 'linkedin'].map((platform) => (
-                                    <button
-                                        key={platform}
-                                        onClick={() => setFormData({ ...formData, platform })}
-                                        className={`px-4 py-3 rounded-lg capitalize transition font-medium ${formData.platform === platform
-                                            ? platform === 'instagram' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' :
-                                                platform === 'twitter' ? 'bg-blue-500 text-white' :
-                                                    'bg-blue-700 text-white'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                            }`}
-                                    >
-                                        {platform}
-                                    </button>
-                                ))}
+                        <div className="glass-card p-6 animate-fadeIn">
+                            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                                <Zap className="w-4 h-4 text-purple-400" />
+                                Platform
+                            </h3>
+                            <div className="grid grid-cols-3 gap-3 mb-4">
+                                {(['instagram', 'twitter', 'linkedin'] as const).map((platform) => {
+                                    const config = platformConfig[platform];
+                                    const Icon = config.icon;
+                                    const isSelected = formData.platform === platform;
+                                    return (
+                                        <button
+                                            key={platform}
+                                            onClick={() => setFormData({ ...formData, platform })}
+                                            className={`group relative px-4 py-3 rounded-xl capitalize transition-all font-medium overflow-hidden ${isSelected
+                                                ? 'text-white shadow-lg'
+                                                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/10'
+                                                }`}
+                                        >
+                                            {isSelected && (
+                                                <div className={`absolute inset-0 bg-gradient-to-r ${config.gradient}`} />
+                                            )}
+                                            <span className="relative flex items-center justify-center gap-2">
+                                                <Icon className="w-4 h-4" />
+                                                {platform}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
                             </div>
 
                             {/* Platform-specific tips */}
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                <p className="text-sm text-blue-800">
+                            <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                                <p className="text-sm text-blue-300">
                                     {formData.platform === 'instagram' && (
-                                        <>
-                                            <strong>Instagram:</strong> Visual storytelling with emojis. Use 15-30 hashtags. Max 2,200 characters.
-                                        </>
+                                        <><strong className="text-blue-200">Instagram:</strong> Visual storytelling with emojis. Use 15-30 hashtags. Max 2,200 characters.</>
                                     )}
                                     {formData.platform === 'twitter' && (
-                                        <>
-                                            <strong>Twitter:</strong> Concise and punchy. 1-3 hashtags max. <strong>280 character limit!</strong>
-                                        </>
+                                        <><strong className="text-blue-200">Twitter:</strong> Concise and punchy. 1-3 hashtags max. <strong>280 character limit!</strong></>
                                     )}
                                     {formData.platform === 'linkedin' && (
-                                        <>
-                                            <strong>LinkedIn:</strong> Professional insights and thought leadership. 3-5 hashtags. Max 3,000 characters.
-                                        </>
+                                        <><strong className="text-blue-200">LinkedIn:</strong> Professional insights and thought leadership. 3-5 hashtags. Max 3,000 characters.</>
                                     )}
                                 </p>
                             </div>
                         </div>
 
-                        {/* Content Type - Show suggestion based on passed type */}
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4">Content Type</h3>
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <p className="text-sm text-blue-800 mb-2">
-                                    <strong>Suggested: {formData.contentType === 'carousel' ? 'Carousel Post' :
+                        {/* Content Type */}
+                        <div className="glass-card p-6 animate-fadeIn stagger-1">
+                            <h3 className="font-bold text-white mb-4">Content Type</h3>
+                            <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                                <p className="text-sm text-purple-300 mb-2">
+                                    <strong className="text-purple-200">Suggested: {formData.contentType === 'carousel' ? 'Carousel Post' :
                                         formData.contentType === 'video' ? 'Video Content' :
                                             formData.contentType === 'reel' ? 'Reel' : 'Image Post'}</strong>
                                 </p>
-                                <p className="text-xs text-blue-700">
+                                <p className="text-xs text-gray-400">
                                     Currently supporting high-quality image generation with AI. Carousel and video support coming soon!
                                 </p>
                             </div>
                         </div>
 
                         {/* Image Generation */}
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4">Generate AI Image</h3>
+                        <div className="glass-card p-6 animate-fadeIn stagger-2">
+                            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                                <ImageIcon className="w-4 h-4 text-purple-400" />
+                                Generate AI Image
+                            </h3>
 
-                            {/* Image Title */}
-                            <div className="mb-3">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Image Title (for text overlay)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.imageTitle}
-                                    onChange={(e) => setFormData({ ...formData, imageTitle: e.target.value })}
-                                    placeholder="e.g., Summer Sale 2024, New Collection"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                                        Image Title (for text overlay)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.imageTitle}
+                                        onChange={(e) => setFormData({ ...formData, imageTitle: e.target.value })}
+                                        placeholder="e.g., Summer Sale 2024, New Collection"
+                                        className="w-full px-4 py-3 rounded-xl"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                                        Image Description
+                                    </label>
+                                    <textarea
+                                        value={formData.imagePrompt}
+                                        onChange={(e) => setFormData({ ...formData, imagePrompt: e.target.value })}
+                                        placeholder="Describe what you want in the image: e.g., A vibrant summer fashion collection with floral patterns, bright colors, outdoor lifestyle setting"
+                                        className="w-full px-4 py-3 rounded-xl resize-none"
+                                        rows={4}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        Be specific: mention colors, style, setting, mood, and key elements
+                                    </p>
+                                </div>
+
+                                <button
+                                    onClick={handleGenerateImage}
+                                    disabled={generatingImage}
+                                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3.5 rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50"
+                                >
+                                    <ImageIcon className={`w-5 h-5 ${generatingImage ? 'animate-pulse' : ''}`} />
+                                    {generatingImage ? 'Generating High-Quality Image...' : 'Generate AI Image'}
+                                </button>
+
+                                {generatingImage && (
+                                    <p className="text-sm text-gray-400 text-center animate-pulse">
+                                        This may take 15-30 seconds for best quality...
+                                    </p>
+                                )}
                             </div>
-
-                            {/* Image Description */}
-                            <div className="mb-3">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Image Description
-                                </label>
-                                <textarea
-                                    value={formData.imagePrompt}
-                                    onChange={(e) => setFormData({ ...formData, imagePrompt: e.target.value })}
-                                    placeholder="Describe what you want in the image: e.g., A vibrant summer fashion collection with floral patterns, bright colors, outdoor lifestyle setting"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                    rows={4}
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Be specific: mention colors, style, setting, mood, and key elements
-                                </p>
-                            </div>
-
-
-                            <button
-                                onClick={handleGenerateImage}
-                                disabled={generatingImage}
-                                className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
-                            >
-                                <ImageIcon className="w-5 h-5" />
-                                {generatingImage ? 'Generating High-Quality Image...' : 'Generate AI Image'}
-                            </button>
-
-                            {generatingImage && (
-                                <p className="text-sm text-gray-600 text-center mt-2">
-                                    This may take 15-30 seconds for best quality...
-                                </p>
-                            )}
                         </div>
 
                         {/* Caption */}
-                        <div className="bg-white rounded-lg shadow p-6">
+                        <div className="glass-card p-6 animate-fadeIn stagger-3">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-semibold text-gray-900">Caption for {formData.platform}</h3>
+                                <h3 className="font-bold text-white">Caption for {formData.platform}</h3>
                                 <button
                                     onClick={handleGenerateCaption}
                                     disabled={generating}
-                                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium disabled:opacity-50"
+                                    className="flex items-center gap-2 text-purple-400 hover:text-purple-300 text-sm font-medium disabled:opacity-50 transition-colors"
                                 >
-                                    <Wand2 className="w-4 h-4" />
+                                    <Wand2 className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
                                     {generating ? 'Generating...' : 'AI Generate'}
                                 </button>
                             </div>
@@ -342,38 +360,34 @@ export default function CreatePostPage() {
                                 value={formData.caption}
                                 onChange={(e) => setFormData({ ...formData, caption: e.target.value })}
                                 placeholder={`Write your ${formData.platform} caption here...`}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                className="w-full px-4 py-3 rounded-xl resize-none"
                                 rows={6}
                             />
                             <div className="flex items-center justify-between mt-2">
-                                <p className="text-sm text-gray-600">
+                                <p className="text-sm text-gray-500">
                                     {formData.caption.length} characters
                                     {formData.platform === 'twitter' && formData.caption.length > 280 && (
-                                        <span className="text-red-600 ml-2">
+                                        <span className="text-red-400 ml-2">
                                             (Over Twitter limit!)
                                         </span>
                                     )}
                                 </p>
-                                {formData.platform === 'twitter' && (
-                                    <p className="text-xs text-gray-500">Max: 280 characters</p>
-                                )}
-                                {formData.platform === 'instagram' && (
-                                    <p className="text-xs text-gray-500">Max: 2,200 characters</p>
-                                )}
-                                {formData.platform === 'linkedin' && (
-                                    <p className="text-xs text-gray-500">Max: 3,000 characters</p>
-                                )}
+                                <p className="text-xs text-gray-500">
+                                    {formData.platform === 'twitter' && 'Max: 280'}
+                                    {formData.platform === 'instagram' && 'Max: 2,200'}
+                                    {formData.platform === 'linkedin' && 'Max: 3,000'}
+                                </p>
                             </div>
                         </div>
 
                         {/* Hashtags */}
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4">Hashtags</h3>
-                            <div className="flex flex-wrap gap-2 mb-3">
+                        <div className="glass-card p-6 animate-fadeIn stagger-4">
+                            <h3 className="font-bold text-white mb-4">Hashtags</h3>
+                            <div className="flex flex-wrap gap-2 mb-4">
                                 {formData.hashtags.map((tag, idx) => (
                                     <span
                                         key={idx}
-                                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center gap-2"
+                                        className="group flex items-center gap-2 bg-purple-500/15 text-purple-300 px-3 py-1.5 rounded-lg text-sm border border-purple-500/20"
                                     >
                                         #{tag}
                                         <button
@@ -381,7 +395,7 @@ export default function CreatePostPage() {
                                                 const newTags = formData.hashtags.filter((_, i) => i !== idx);
                                                 setFormData({ ...formData, hashtags: newTags });
                                             }}
-                                            className="text-blue-600 hover:text-blue-800"
+                                            className="text-purple-400 hover:text-red-400 transition-colors"
                                         >
                                             ×
                                         </button>
@@ -391,7 +405,7 @@ export default function CreatePostPage() {
                             <input
                                 type="text"
                                 placeholder="Add hashtag (press Enter)"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-4 py-3 rounded-xl"
                                 onKeyPress={(e) => {
                                     if (e.key === 'Enter') {
                                         const value = (e.target as HTMLInputElement).value.replace('#', '');
@@ -408,25 +422,28 @@ export default function CreatePostPage() {
                         </div>
 
                         {/* Schedule */}
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4">Schedule Post</h3>
+                        <div className="glass-card p-6 animate-fadeIn stagger-5">
+                            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-blue-400" />
+                                Schedule Post
+                            </h3>
                             <input
                                 type="datetime-local"
                                 value={formData.scheduledTime}
                                 onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-4 py-3 rounded-xl"
                             />
                         </div>
                     </div>
 
                     {/* Right Column - Preview */}
                     <div className="space-y-6">
-                        <div className="bg-white rounded-lg shadow p-6 sticky top-6">
-                            <h3 className="font-semibold text-gray-900 mb-4">Preview</h3>
+                        <div className="glass-card p-6 sticky top-24 animate-fadeIn">
+                            <h3 className="font-bold text-white mb-4">Preview</h3>
 
                             {/* Image Preview */}
                             {formData.generatedImageUrl && (
-                                <div className="mb-4 rounded-lg overflow-hidden">
+                                <div className="mb-4 rounded-xl overflow-hidden border border-white/10">
                                     <img
                                         src={formData.generatedImageUrl}
                                         alt="Generated"
@@ -435,8 +452,17 @@ export default function CreatePostPage() {
                                 </div>
                             )}
 
+                            {!formData.generatedImageUrl && (
+                                <div className="mb-4 aspect-square rounded-xl border-2 border-dashed border-white/10 flex items-center justify-center bg-white/5">
+                                    <div className="text-center">
+                                        <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-2" />
+                                        <p className="text-gray-500 text-sm">Generate an image above</p>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Caption Preview */}
-                            <div className="bg-gray-50 rounded-lg p-4 mb-4 relative">
+                            <div className="relative p-4 rounded-xl bg-white/5 border border-white/10 mb-4">
                                 {formData.caption && (
                                     <button
                                         onClick={() => {
@@ -445,21 +471,21 @@ export default function CreatePostPage() {
                                             setCopiedCaption(true);
                                             setTimeout(() => setCopiedCaption(false), 2000);
                                         }}
-                                        className="absolute top-2 right-2 p-1.5 rounded hover:bg-gray-200 transition"
+                                        className="absolute top-3 right-3 p-2 rounded-lg hover:bg-white/10 transition-colors"
                                         title="Copy caption"
                                     >
                                         {copiedCaption ? (
-                                            <Check className="w-4 h-4 text-green-600" />
+                                            <Check className="w-4 h-4 text-green-400" />
                                         ) : (
-                                            <Copy className="w-4 h-4 text-gray-500" />
+                                            <Copy className="w-4 h-4 text-gray-400" />
                                         )}
                                     </button>
                                 )}
-                                <p className="text-gray-900 whitespace-pre-wrap pr-8">
+                                <p className="text-gray-300 whitespace-pre-wrap pr-10 text-sm">
                                     {formData.caption || 'Your caption will appear here...'}
                                 </p>
                                 {formData.hashtags.length > 0 && (
-                                    <p className="text-blue-600 mt-2">
+                                    <p className="text-purple-400 mt-3 text-sm">
                                         {formData.hashtags.map((tag) => `#${tag}`).join(' ')}
                                     </p>
                                 )}
@@ -470,14 +496,14 @@ export default function CreatePostPage() {
                                 <button
                                     onClick={() => handleSavePost('draft')}
                                     disabled={saving}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium disabled:opacity-50"
+                                    className="w-full px-4 py-3 rounded-xl border border-white/10 text-gray-300 hover:text-white hover:bg-white/5 transition-all font-medium disabled:opacity-50"
                                 >
                                     Save as Draft
                                 </button>
                                 <button
                                     onClick={() => handleSavePost('scheduled')}
                                     disabled={saving || !formData.scheduledTime}
-                                    className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50"
+                                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3 rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50"
                                 >
                                     <Calendar className="w-4 h-4" />
                                     {saving ? 'Saving...' : 'Schedule Post'}
@@ -490,89 +516,84 @@ export default function CreatePostPage() {
 
             {/* Multi-Platform Captions Modal */}
             {showMultiPlatform && multiPlatformCaptions && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-                            <h2 className="text-2xl font-bold text-gray-900">Multi-Platform Captions</h2>
+                <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4" onClick={() => setShowMultiPlatform(false)}>
+                    <div className="modal-content max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-[#16161f] border-b border-white/10 px-6 py-4 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-white">Multi-Platform Captions</h2>
                             <button
                                 onClick={() => setShowMultiPlatform(false)}
-                                className="text-gray-400 hover:text-gray-600 text-2xl"
+                                className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors text-xl"
                             >
                                 ×
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-6">
-                            {Object.entries(multiPlatformCaptions).map(([platform, data]: [string, any]) => (
-                                <div key={platform} className="border rounded-lg p-6 hover:shadow-md transition">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div>
-                                            <h3 className="text-xl font-bold text-gray-900 capitalize flex items-center gap-2">
-                                                {platform}
-                                                <span className={`text-xs px-2 py-1 rounded ${platform === 'instagram' ? 'bg-pink-100 text-pink-800' :
-                                                    platform === 'twitter' ? 'bg-blue-100 text-blue-800' :
-                                                        'bg-blue-100 text-blue-800'
-                                                    }`}>
-                                                    {data.character_count || data.caption.length} chars
+                        <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
+                            {Object.entries(multiPlatformCaptions).map(([platform, data]: [string, any]) => {
+                                const config = platformConfig[platform as keyof typeof platformConfig];
+                                const Icon = config?.icon || Instagram;
+                                return (
+                                    <div key={platform} className="glass-card p-6 hover:border-white/15 transition-all">
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${config?.gradient || 'from-gray-500 to-gray-600'} flex items-center justify-center`}>
+                                                    <Icon className="w-5 h-5 text-white" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-bold text-white capitalize">{platform}</h3>
+                                                    <span className="text-xs text-gray-500">
+                                                        {data.character_count || data.caption.length} chars
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleCopyCaption(platform, data.caption, data.hashtags)}
+                                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-sm text-gray-300 transition-colors"
+                                                >
+                                                    {copiedPlatform === platform ? (
+                                                        <><Check className="w-4 h-4 text-green-400" /> Copied</>
+                                                    ) : (
+                                                        <><Copy className="w-4 h-4" /> Copy</>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleUsePlatformCaption(platform)}
+                                                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/25 text-sm font-medium transition-all"
+                                                >
+                                                    Use This
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 rounded-xl bg-white/5 border border-white/5 mb-3">
+                                            <p className="text-gray-300 whitespace-pre-wrap text-sm">{data.caption}</p>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {data.hashtags?.map((tag: string, idx: number) => (
+                                                <span key={idx} className="text-sm text-purple-400">
+                                                    #{tag}
                                                 </span>
-                                            </h3>
-                                            {data.platform_notes && (
-                                                <p className="text-sm text-gray-600 mt-1">{data.platform_notes}</p>
-                                            )}
+                                            ))}
                                         </div>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleCopyCaption(platform, data.caption, data.hashtags)}
-                                                className="flex items-center gap-1 px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 text-sm"
-                                            >
-                                                {copiedPlatform === platform ? (
-                                                    <>
-                                                        <Check className="w-4 h-4 text-green-600" />
-                                                        Copied
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Copy className="w-4 h-4" />
-                                                        Copy
-                                                    </>
-                                                )}
-                                            </button>
-                                            <button
-                                                onClick={() => handleUsePlatformCaption(platform)}
-                                                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                                            >
-                                                Use This
-                                            </button>
-                                        </div>
-                                    </div>
 
-                                    <div className="bg-gray-50 rounded-lg p-4 mb-3">
-                                        <p className="text-gray-900 whitespace-pre-wrap">{data.caption}</p>
+                                        {data.cta && (
+                                            <div className="mt-3 pt-3 border-t border-white/5">
+                                                <p className="text-sm text-gray-400">
+                                                    <strong className="text-gray-300">CTA:</strong> {data.cta}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
-
-                                    <div className="flex flex-wrap gap-2">
-                                        {data.hashtags?.map((tag: string, idx: number) => (
-                                            <span key={idx} className="text-sm text-blue-600">
-                                                #{tag}
-                                            </span>
-                                        ))}
-                                    </div>
-
-                                    {data.cta && (
-                                        <div className="mt-3 pt-3 border-t">
-                                            <p className="text-sm text-gray-600">
-                                                <strong>CTA:</strong> {data.cta}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
-                        <div className="sticky bottom-0 bg-white border-t px-6 py-4">
+                        <div className="sticky bottom-0 bg-[#16161f] border-t border-white/10 px-6 py-4">
                             <button
                                 onClick={() => setShowMultiPlatform(false)}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                                className="w-full px-4 py-3 rounded-xl border border-white/10 text-gray-300 hover:text-white hover:bg-white/5 transition-all font-medium"
                             >
                                 Close
                             </button>

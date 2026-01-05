@@ -6,6 +6,7 @@ import { getBrand, getBrandCampaigns, createCampaign, updateCampaignStatus, dele
 import { Plus, Rocket, DollarSign, Target, Calendar, TrendingUp, Activity, Play, Pause, CheckCircle, Trash2, BarChart3, Lightbulb, X, Sparkles, Eye, Image, Link2, Unlink } from 'lucide-react';
 import Link from 'next/link';
 import BrandNavBar from '@/components/BrandNavBar';
+import { RingLoader } from '@/components/Loaders';
 
 export default function CampaignsPage() {
     console.log('Rendering CampaignsPage');
@@ -65,10 +66,13 @@ export default function CampaignsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen flex flex-col items-center justify-center gap-6">
+                <RingLoader size={56} />
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading...</p>
+                    <p className="text-[var(--text-secondary)] text-sm">Loading campaigns...</p>
+                    <div className="w-48 mt-4">
+                        <div className="loader-wave" />
+                    </div>
                 </div>
             </div>
         );
@@ -82,23 +86,26 @@ export default function CampaignsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
             {/* Shared Navigation Bar */}
             <BrandNavBar brandId={brandId} brandName={brand?.brand?.name} />
 
             {/* Action Bar */}
-            <div className="bg-white border-b">
+            <div className="glass-card border-x-0 border-t-0 rounded-none">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-xl font-bold text-gray-900">Campaign Command Center</h2>
-                            <p className="text-gray-600 text-sm">Manage and monitor your campaigns</p>
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                <Rocket className="w-5 h-5 text-purple-400" />
+                                Campaign Command Center
+                            </h2>
+                            <p className="text-gray-400 text-sm">Manage and monitor your campaigns</p>
                         </div>
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all"
+                            className="group flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:shadow-purple-500/25 transition-all font-medium"
                         >
-                            <Plus className="w-5 h-5" />
+                            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
                             Launch Campaign
                         </button>
                     </div>
@@ -110,30 +117,30 @@ export default function CampaignsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <Link
                         href={`/brand/${brandId}/ad-recommendations`}
-                        className="group bg-white rounded-lg shadow p-6 hover:shadow-lg transition-all border-l-4 border-blue-600"
+                        className="group glass-card p-6 hover:border-white/15 hover:-translate-y-1 transition-all animate-fadeIn"
                     >
                         <div className="flex items-center justify-between">
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-1">AI Platform Recommendations</h3>
-                                <p className="text-gray-600">Get intelligent insights for optimal ad spend allocation</p>
+                                <h3 className="text-lg font-bold text-white mb-1 group-hover:text-purple-300 transition-colors">AI Platform Recommendations</h3>
+                                <p className="text-gray-400">Get intelligent insights for optimal ad spend allocation</p>
                             </div>
-                            <div className="bg-blue-100 rounded-lg p-3">
-                                <Sparkles className="w-8 h-8 text-blue-600" />
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <Sparkles className="w-7 h-7 text-blue-400" />
                             </div>
                         </div>
                     </Link>
 
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="group bg-white rounded-lg shadow p-6 hover:shadow-lg transition-all border-l-4 border-green-600 text-left"
+                        className="group glass-card p-6 hover:border-white/15 hover:-translate-y-1 transition-all text-left animate-fadeIn stagger-1"
                     >
                         <div className="flex items-center justify-between">
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-1">Create New Campaign</h3>
-                                <p className="text-gray-600">Launch organic or paid campaigns across platforms</p>
+                                <h3 className="text-lg font-bold text-white mb-1 group-hover:text-green-300 transition-colors">Create New Campaign</h3>
+                                <p className="text-gray-400">Launch organic or paid campaigns across platforms</p>
                             </div>
-                            <div className="bg-green-100 rounded-lg p-3">
-                                <Rocket className="w-8 h-8 text-green-600" />
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <Rocket className="w-7 h-7 text-green-400" />
                             </div>
                         </div>
                     </button>
@@ -142,17 +149,17 @@ export default function CampaignsPage() {
                 {/* Stats Overview */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                     {[
-                        { label: 'Total Campaigns', value: stats.total, icon: Activity, bgColor: 'bg-blue-100', iconColor: 'text-blue-600' },
-                        { label: 'Active Now', value: stats.active, icon: Rocket, bgColor: 'bg-green-100', iconColor: 'text-green-600' },
-                        { label: 'Total Budget', value: `$${stats.totalBudget.toLocaleString()}`, icon: DollarSign, bgColor: 'bg-purple-100', iconColor: 'text-purple-600' },
-                        { label: 'Total Spent', value: `$${stats.totalSpent.toLocaleString()}`, icon: TrendingUp, bgColor: 'bg-orange-100', iconColor: 'text-orange-600' }
+                        { label: 'Total Campaigns', value: stats.total, icon: Activity, gradient: 'from-blue-500/20 to-cyan-500/20', iconColor: 'text-blue-400' },
+                        { label: 'Active Now', value: stats.active, icon: Rocket, gradient: 'from-green-500/20 to-emerald-500/20', iconColor: 'text-green-400' },
+                        { label: 'Total Budget', value: `$${stats.totalBudget.toLocaleString()}`, icon: DollarSign, gradient: 'from-purple-500/20 to-pink-500/20', iconColor: 'text-purple-400' },
+                        { label: 'Total Spent', value: `$${stats.totalSpent.toLocaleString()}`, icon: TrendingUp, gradient: 'from-orange-500/20 to-red-500/20', iconColor: 'text-orange-400' }
                     ].map((stat, idx) => (
-                        <div key={idx} className="bg-white rounded-lg shadow p-5">
-                            <div className={`w-10 h-10 mb-3 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
+                        <div key={idx} className="stat-card p-5 animate-fadeIn" style={{ animationDelay: `${idx * 0.1}s` }}>
+                            <div className={`w-12 h-12 mb-3 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center`}>
                                 <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
                             </div>
-                            <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                            <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                            <p className="text-sm text-gray-400 mb-1">{stat.label}</p>
+                            <p className="text-2xl font-bold text-white">{stat.value}</p>
                         </div>
                     ))}
                 </div>

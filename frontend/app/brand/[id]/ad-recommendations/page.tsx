@@ -109,25 +109,25 @@ export default function AdRecommendationsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading...</p>
+                    <div className="loading-spinner mx-auto"></div>
+                    <p className="mt-4 text-gray-400">Loading...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
             {/* Shared Navigation Bar */}
             <BrandNavBar brandId={brandId} brandName={brand?.brand?.name} />
 
             {/* Page Header */}
-            <div className="bg-white border-b">
+            <div className="glass-card border-x-0 border-t-0 rounded-none">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
                     <div className="flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-blue-600" />
+                        <Sparkles className="w-5 h-5 text-purple-400" />
                         <h2 className="text-lg font-semibold text-gray-900">AI Platform Recommendations</h2>
                     </div>
                 </div>

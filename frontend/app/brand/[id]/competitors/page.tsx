@@ -69,18 +69,18 @@ export default function CompetitorAnalysisPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
             {/* Shared Navigation Bar */}
             <BrandNavBar brandId={brandId} />
 
             {/* Page Header */}
-            <div className="bg-white border-b">
+            <div className="glass-card border-x-0 border-t-0 rounded-none">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
                     <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-blue-600" />
-                        <h2 className="text-lg font-semibold text-gray-900">Competitor Analysis</h2>
+                        <Users className="w-5 h-5 text-purple-400" />
+                        <h2 className="text-lg font-semibold text-white">Competitor Analysis</h2>
                     </div>
-                    <p className="text-sm text-gray-600">Analyze competitors and identify opportunities</p>
+                    <p className="text-sm text-gray-400">Analyze competitors and identify opportunities</p>
                 </div>
             </div>
 

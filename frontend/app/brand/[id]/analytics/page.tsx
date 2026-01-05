@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, Heart, MessageCircle, Users, Eye, Calendar, Zap, Target, Award } from 'lucide-react';
 import BrandNavBar from '@/components/BrandNavBar';
+import { RingLoader } from '@/components/Loaders';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -42,10 +43,13 @@ export default function AnalyticsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="min-h-screen flex flex-col items-center justify-center gap-6">
+                <RingLoader size={56} />
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading analytics...</p>
+                    <p className="text-[var(--text-secondary)] text-sm">Loading analytics...</p>
+                    <div className="w-48 mt-4">
+                        <div className="loader-wave" />
+                    </div>
                 </div>
             </div>
         );
@@ -132,17 +136,20 @@ export default function AnalyticsPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
             {/* Shared Navigation Bar */}
             <BrandNavBar brandId={brandId} brandName={brand?.brand?.name} />
 
             {/* Header with Time Range */}
-            <div className="bg-white border-b">
+            <div className="glass-card border-x-0 border-t-0 rounded-none">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-xl font-bold text-gray-900">Analytics Dashboard</h2>
-                            <p className="text-gray-600 text-sm">Performance insights for your Instagram content</p>
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                <TrendingUp className="w-5 h-5 text-green-400" />
+                                Analytics Dashboard
+                            </h2>
+                            <p className="text-gray-400 text-sm">Performance insights for your Instagram content</p>
                         </div>
                         <div className="flex gap-2">
                             {[7, 30, 90].map((days) => (
@@ -282,8 +289,8 @@ export default function AnalyticsPage() {
                             </div>
                             <div className="mt-4 text-center">
                                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${performanceScore >= 70 ? 'bg-green-100 text-green-700' :
-                                        performanceScore >= 40 ? 'bg-yellow-100 text-yellow-700' :
-                                            'bg-red-100 text-red-700'
+                                    performanceScore >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-red-100 text-red-700'
                                     }`}>
                                     {performanceScore >= 70 ? 'Excellent' : performanceScore >= 40 ? 'Good' : 'Needs Work'}
                                 </span>
