@@ -189,3 +189,94 @@ export function GridSkeleton({ count = 3 }: { count?: number }) {
         </div>
     );
 }
+
+// AI Operation Loader - for content/image generation, analysis
+export function AILoader({
+    message = 'Processing...',
+    steps = [],
+    currentStep = 0,
+    variant = 'default'
+}: {
+    message?: string;
+    steps?: string[];
+    currentStep?: number;
+    variant?: 'default' | 'image' | 'content' | 'analysis';
+}) {
+    const [dots, setDots] = useState('');
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDots(d => d.length >= 3 ? '' : d + '.');
+        }, 400);
+        return () => clearInterval(interval);
+    }, []);
+
+    const colors = {
+        default: 'from-violet-500 to-purple-600',
+        image: 'from-pink-500 to-rose-600',
+        content: 'from-blue-500 to-cyan-600',
+        analysis: 'from-emerald-500 to-green-600'
+    };
+
+    const icons = {
+        default: '✨',
+        image: '🎨',
+        content: '✍️',
+        analysis: '📊'
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center py-8 px-4">
+            {/* Animated Icon */}
+            <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${colors[variant]} flex items-center justify-center mb-5 animate-pulse shadow-lg`}>
+                <span className="text-2xl">{icons[variant]}</span>
+            </div>
+
+            {/* Message */}
+            <p className="text-white font-medium mb-2">{message}{dots}</p>
+
+            {/* Progress bar */}
+            <div className="w-64 h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden mb-4">
+                <div
+                    className={`h-full bg-gradient-to-r ${colors[variant]} rounded-full animate-pulse`}
+                    style={{
+                        width: steps.length > 0 ? `${((currentStep + 1) / steps.length) * 100}%` : '60%',
+                        transition: 'width 0.5s ease-out'
+                    }}
+                />
+            </div>
+
+            {/* Steps */}
+            {steps.length > 0 && (
+                <div className="space-y-2 text-sm">
+                    {steps.map((step, idx) => (
+                        <div
+                            key={idx}
+                            className={`flex items-center gap-2 transition-all duration-300 ${idx < currentStep
+                                    ? 'text-emerald-400'
+                                    : idx === currentStep
+                                        ? 'text-white'
+                                        : 'text-[var(--text-muted)]'
+                                }`}
+                        >
+                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs border border-current">
+                                {idx < currentStep ? '✓' : idx + 1}
+                            </span>
+                            <span>{step}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Inline AI loader for buttons
+export function InlineLoader({ text = 'Loading' }: { text?: string }) {
+    return (
+        <span className="flex items-center gap-2">
+            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            {text}
+        </span>
+    );
+}

@@ -154,9 +154,9 @@ Return ONLY valid JSON array, no markdown.
         # Platform-specific guidelines
         platform_guidelines = {
             "instagram": {
-                "max_length": 2200,
+                "max_length": 1500,
                 "style": "Visual storytelling with emojis, 3-5 paragraphs, engaging hooks, call-to-action",
-                "hashtags": "15-30 relevant hashtags",
+                "hashtags": "5-10 relevant hashtags",
                 "format": "Hook + Story + CTA + Hashtags",
                 "emojis": "Use emojis strategically for visual appeal"
             },
@@ -172,7 +172,7 @@ Return ONLY valid JSON array, no markdown.
                 "style": "Professional, thought leadership, industry insights, value-driven",
                 "hashtags": "3-5 professional hashtags",
                 "format": "Professional insight + Key takeaways + Industry hashtags",
-                "emojis": "Minimal, professional use only"
+                "emojis": "Minimal, professional use only but do add emojis for visual appeal"
             }
         }
         

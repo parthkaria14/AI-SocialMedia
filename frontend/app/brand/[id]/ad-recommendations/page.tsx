@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getBrand, getAdRecommendations, createCampaign } from '@/lib/api';
-import { DollarSign, Target, TrendingUp, Zap, CheckCircle2, XCircle, Sparkles, ArrowRight, Rocket, BarChart3 } from 'lucide-react';
+import { Sparkles, DollarSign, Target, CheckCircle2, PieChart, Zap, ArrowRight, TrendingUp, ArrowUpRight, Briefcase, Instagram, Twitter, Linkedin, Youtube, Facebook, ThumbsUp, ThumbsDown, DollarSign as Dollar, Users, Activity, AlertCircle, Star, Rocket, BarChart3, XCircle, Wand2 } from 'lucide-react';
+import Link from 'next/link';
 import BrandNavBar from '@/components/BrandNavBar';
+import { RingLoader, InlineLoader, AILoader } from '@/components/Loaders';
 
 export default function AdRecommendationsPage() {
     const params = useParams();
@@ -109,10 +111,13 @@ export default function AdRecommendationsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="min-h-screen flex flex-col items-center justify-center gap-6">
+                <RingLoader size={56} />
                 <div className="text-center">
-                    <div className="loading-spinner mx-auto"></div>
-                    <p className="mt-4 text-gray-400">Loading...</p>
+                    <p className="text-[var(--text-secondary)] text-sm">Loading recommendations...</p>
+                    <div className="w-48 mt-4">
+                        <div className="loader-wave" />
+                    </div>
                 </div>
             </div>
         );
@@ -241,24 +246,31 @@ export default function AdRecommendationsPage() {
                         </div>
                     </div>
 
-                    {/* Analyze Button */}
-                    <button
-                        onClick={handleAnalyze}
-                        disabled={analyzing || formData.objectives.length === 0}
-                        className="w-full flex items-center justify-center gap-3 bg-blue-600 text-white px-6 py-4 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg"
-                    >
-                        {analyzing ? (
-                            <>
-                                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                                Analyzing Best Platforms...
-                            </>
-                        ) : (
-                            <>
-                                <Zap className="w-6 h-6" />
-                                Get AI Recommendations
-                            </>
-                        )}
-                    </button>
+                    {/* Analyze Button / Loading State */}
+                    {analyzing ? (
+                        <div className="bg-[var(--bg-tertiary)] rounded-xl border border-[var(--glass-border)]">
+                            <AILoader
+                                message="Analyzing ad platforms"
+                                variant="analysis"
+                                steps={[
+                                    'Evaluating campaign objectives',
+                                    'Analyzing target audience',
+                                    'Calculating ROI potential',
+                                    'Generating recommendations'
+                                ]}
+                                currentStep={1}
+                            />
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleAnalyze}
+                            disabled={formData.objectives.length === 0}
+                            className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white px-6 py-4 rounded-xl hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg"
+                        >
+                            <Zap className="w-6 h-6" />
+                            Get AI Recommendations
+                        </button>
+                    )}
                 </div>
 
                 {/* Recommendations */}
@@ -433,16 +445,42 @@ export default function AdRecommendationsPage() {
                                             </div>
                                         )}
 
-                                        {/* Create Campaign Button */}
-                                        <button
-                                            onClick={() => handleCreateCampaignFromRecommendation(rec)}
-                                            disabled={creatingCampaign}
-                                            className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 font-medium"
-                                        >
-                                            <Rocket className="w-5 h-5" />
-                                            Create Campaign from This Recommendation
-                                            <ArrowRight className="w-5 h-5" />
-                                        </button>
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-3">
+                                            <Link
+                                                href={{
+                                                    pathname: `/brand/${brandId}/create`,
+                                                    query: {
+                                                        source: 'ad-recommendation',
+                                                        platform: rec.platform?.toLowerCase().includes('instagram') ? 'instagram' :
+                                                            rec.platform?.toLowerCase().includes('facebook') ? 'facebook' :
+                                                                rec.platform?.toLowerCase().includes('linkedin') ? 'linkedin' :
+                                                                    rec.platform?.toLowerCase().includes('twitter') ? 'twitter' : 'instagram',
+                                                        contentIdea: `Ad creative for ${rec.platform}: ${rec.reasoning?.audience_fit || ''}`.slice(0, 200),
+                                                        objectives: JSON.stringify(formData.objectives),
+                                                        adContext: JSON.stringify({
+                                                            platform: rec.platform,
+                                                            budget: rec.recommended_budget,
+                                                            expectedRoi: rec.expected_roi,
+                                                            adTypes: rec.recommended_strategy?.ad_types,
+                                                            contentTips: rec.recommended_strategy?.content_recommendations
+                                                        })
+                                                    }
+                                                }}
+                                                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg hover:shadow-lg hover:shadow-purple-500/25 transition-all font-medium"
+                                            >
+                                                <Wand2 className="w-5 h-5" />
+                                                Create Content
+                                            </Link>
+                                            <button
+                                                onClick={() => handleCreateCampaignFromRecommendation(rec)}
+                                                disabled={creatingCampaign}
+                                                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 font-medium"
+                                            >
+                                                <Rocket className="w-5 h-5" />
+                                                Create Campaign
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}

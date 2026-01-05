@@ -6,7 +6,7 @@ import { getBrand, getBrandCampaigns, createCampaign, updateCampaignStatus, dele
 import { Plus, Rocket, DollarSign, Target, Calendar, TrendingUp, Activity, Play, Pause, CheckCircle, Trash2, BarChart3, Lightbulb, X, Sparkles, Eye, Image, Link2, Unlink } from 'lucide-react';
 import Link from 'next/link';
 import BrandNavBar from '@/components/BrandNavBar';
-import { RingLoader } from '@/components/Loaders';
+import { RingLoader, InlineLoader, AILoader } from '@/components/Loaders';
 
 export default function CampaignsPage() {
     console.log('Rendering CampaignsPage');
@@ -738,24 +738,45 @@ function CampaignDetailModal({ campaign, brandId, onClose, onRefresh }: any) {
                             </div>
 
                             {/* AI Actions */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                                <button
-                                    onClick={handleAnalyze}
-                                    disabled={loadingAnalysis}
-                                    className="flex items-center justify-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 hover:bg-blue-100 transition-all disabled:opacity-50"
-                                >
-                                    <BarChart3 className="w-5 h-5" />
-                                    {loadingAnalysis ? 'Analyzing...' : 'Run AI Performance Analysis'}
-                                </button>
-                                <button
-                                    onClick={handleGenerateStrategy}
-                                    disabled={loadingStrategy}
-                                    className="flex items-center justify-center gap-3 p-4 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 hover:bg-purple-100 transition-all disabled:opacity-50"
-                                >
-                                    <Lightbulb className="w-5 h-5" />
-                                    {loadingStrategy ? 'Generating...' : 'Generate AI Strategy'}
-                                </button>
-                            </div>
+                            {(loadingAnalysis || loadingStrategy) ? (
+                                <div className="bg-[var(--bg-tertiary)] rounded-xl border border-[var(--glass-border)] mt-4">
+                                    <AILoader
+                                        message={loadingAnalysis ? "Analyzing campaign performance" : "Generating campaign strategy"}
+                                        variant="analysis"
+                                        steps={loadingAnalysis ? [
+                                            'Fetching campaign data',
+                                            'Analyzing metrics',
+                                            'Identifying patterns',
+                                            'Creating insights'
+                                        ] : [
+                                            'Analyzing brand profile',
+                                            'Evaluating objectives',
+                                            'Building strategy',
+                                            'Optimizing recommendations'
+                                        ]}
+                                        currentStep={1}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                                    <button
+                                        onClick={handleAnalyze}
+                                        disabled={loadingAnalysis}
+                                        className="flex items-center justify-center gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400 hover:bg-blue-500/20 transition-all disabled:opacity-50"
+                                    >
+                                        <BarChart3 className="w-5 h-5" />
+                                        Run AI Performance Analysis
+                                    </button>
+                                    <button
+                                        onClick={handleGenerateStrategy}
+                                        disabled={loadingStrategy}
+                                        className="flex items-center justify-center gap-3 p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400 hover:bg-purple-500/20 transition-all disabled:opacity-50"
+                                    >
+                                        <Lightbulb className="w-5 h-5" />
+                                        Generate AI Strategy
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1045,6 +1066,23 @@ function CampaignDetailModal({ campaign, brandId, onClose, onRefresh }: any) {
                                                             }`}>
                                                             {item.expected_engagement} engagement
                                                         </span>
+                                                        <Link
+                                                            href={{
+                                                                pathname: `/brand/${brandId}/create`,
+                                                                query: {
+                                                                    source: 'campaign-strategy',
+                                                                    platform: item.platform?.toLowerCase() || 'instagram',
+                                                                    contentType: item.content_type?.toLowerCase() || 'image',
+                                                                    contentIdea: item.content_idea,
+                                                                    campaignName: strategy.campaign_name || campaign.name,
+                                                                    campaignObjectives: JSON.stringify(campaign.objectives || [])
+                                                                }
+                                                            }}
+                                                            className="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-all flex items-center gap-1"
+                                                        >
+                                                            <Sparkles className="w-3 h-3" />
+                                                            Create
+                                                        </Link>
                                                     </div>
                                                 ))}
                                             </div>

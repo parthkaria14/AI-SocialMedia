@@ -6,7 +6,7 @@ import { getBrand, generateContent, getBrandAnalytics, syncBrand, getBrandPosts 
 import { RefreshCw, Sparkles, Calendar, Target, Activity, CheckCircle, Lightbulb, Plus, ArrowRight, Zap, Image, Video, Layout } from 'lucide-react';
 import Link from 'next/link';
 import BrandNavBar from '@/components/BrandNavBar';
-import { RingLoader } from '@/components/Loaders';
+import { RingLoader, InlineLoader, AILoader } from '@/components/Loaders';
 
 export default function BrandDetailPage() {
     const params = useParams();
@@ -125,16 +125,28 @@ export default function BrandDetailPage() {
                                 disabled={syncing}
                                 className="group flex items-center gap-2 px-4 py-2 border border-white/10 rounded-xl hover:bg-white/5 transition-all disabled:opacity-50"
                             >
-                                <RefreshCw className={`w-4 h-4 text-gray-400 group-hover:text-white ${syncing ? 'animate-spin' : ''}`} />
-                                <span className="text-gray-300">{syncing ? 'Syncing...' : 'Sync'}</span>
+                                {syncing ? (
+                                    <InlineLoader text="Syncing" />
+                                ) : (
+                                    <>
+                                        <RefreshCw className="w-4 h-4 text-gray-400 group-hover:text-white" />
+                                        <span className="text-gray-300">Sync</span>
+                                    </>
+                                )}
                             </button>
                             <button
                                 onClick={handleGenerateContent}
                                 disabled={generatingContent || !brandProfile}
                                 className="group flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50 font-medium"
                             >
-                                <Sparkles className={`w-4 h-4 ${generatingContent ? 'animate-pulse' : ''}`} />
-                                {generatingContent ? 'Generating...' : 'Generate Content'}
+                                {generatingContent ? (
+                                    <InlineLoader text="Generating" />
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-4 h-4" />
+                                        Generate Content
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
@@ -409,7 +421,21 @@ export default function BrandDetailPage() {
                                 <Lightbulb className="w-5 h-5 text-yellow-400" />
                                 AI Content Ideas
                             </h2>
-                            {contentIdeas.length === 0 ? (
+                            {generatingContent ? (
+                                <div className="glass-card p-8">
+                                    <AILoader
+                                        message="Generating content ideas"
+                                        variant="content"
+                                        steps={[
+                                            'Analyzing brand profile',
+                                            'Researching trends',
+                                            'Creating unique ideas',
+                                            'Optimizing for engagement'
+                                        ]}
+                                        currentStep={1}
+                                    />
+                                </div>
+                            ) : contentIdeas.length === 0 ? (
                                 <div className="glass-card p-12 text-center">
                                     <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center">
                                         <Sparkles className="w-8 h-8 text-yellow-400 animate-float" />

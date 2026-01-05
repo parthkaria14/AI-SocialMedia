@@ -14,6 +14,29 @@ class CampaignAgent:
         genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
         self.model = genai.GenerativeModel('gemini-2.5-flash')
     
+    def _clean_json_response(self, text):
+        """Clean and parse JSON from LLM response"""
+        result = text.strip()
+        
+        # Remove markdown code blocks
+        if result.startswith('```json'):
+            result = result[7:]
+        if result.startswith('```'):
+            result = result[3:]
+        if result.endswith('```'):
+            result = result[:-3]
+        
+        result = result.strip()
+        
+        # Fix common JSON issues from LLM
+        import re
+        # Remove trailing commas before } or ]
+        result = re.sub(r',\s*([}\]])', r'\1', result)
+        # Remove any JavaScript-style comments
+        result = re.sub(r'//.*?\n', '\n', result)
+        
+        return json.loads(result)
+    
     def recommend_ad_platforms(self, brand_profile, campaign_objectives, budget, target_metrics):
         """
         Recommend best ad platforms based on brand, objectives, and budget
@@ -62,21 +85,21 @@ Return as JSON:
         "content_recommendations": ["recommendation1", "recommendation2"]
       }},
       "expected_metrics": {{
-        "impressions": estimated_number,
-        "clicks": estimated_number,
-        "conversions": estimated_number,
-        "ctr": percentage,
-        "cpc": dollar_amount,
-        "roas": ratio
+        "impressions": 10000,
+        "clicks": 500,
+        "conversions": 50,
+        "ctr": 2.5,
+        "cpc": 1.50,
+        "roas": 3.0
       }},
       "pros": ["pro1", "pro2"],
       "cons": ["con1", "con2"]
     }}
   ],
   "budget_allocation": {{
-    "platform1": percentage,
-    "platform2": percentage,
-    "platform3": percentage
+    "platform1": 40,
+    "platform2": 35,
+    "platform3": 25
   }},
   "timeline_recommendation": "suggested campaign duration",
   "success_metrics": ["metric1", "metric2"],
@@ -88,14 +111,7 @@ Return ONLY valid JSON, no markdown.
         
         try:
             response = self.model.generate_content(prompt)
-            result = response.text.strip()
-            
-            if result.startswith('```json'):
-                result = result[7:-3]
-            elif result.startswith('```'):
-                result = result[3:-3]
-            
-            return json.loads(result)
+            return self._clean_json_response(response.text)
         except Exception as e:
             print(f"Error in ad platform recommendation: {e}")
             return {
@@ -170,14 +186,7 @@ Return ONLY valid JSON, no markdown.
         
         try:
             response = self.model.generate_content(prompt)
-            result = response.text.strip()
-            
-            if result.startswith('```json'):
-                result = result[7:-3]
-            elif result.startswith('```'):
-                result = result[3:-3]
-            
-            return json.loads(result)
+            return self._clean_json_response(response.text)
         except Exception as e:
             print(f"Error analyzing campaign: {e}")
             return {"error": str(e)}
@@ -228,16 +237,16 @@ Return as JSON:
     {{
       "asset_type": "image/video",
       "specifications": "details",
-      "quantity": number,
+      "quantity": 5,
       "purpose": "awareness/conversion"
     }}
   ],
   "kpi_targets": {{
-    "impressions": number,
-    "engagement_rate": "percentage",
-    "click_through_rate": "percentage",
-    "conversions": number,
-    "roi": "ratio"
+    "impressions": 50000,
+    "engagement_rate": "3.5%",
+    "click_through_rate": "2.0%",
+    "conversions": 100,
+    "roi": "2.5x"
   }},
   "milestone_checkpoints": [
     {{"day": 7, "check": "what to check", "target": "target metric"}},
@@ -253,14 +262,7 @@ Return ONLY valid JSON, no markdown.
         
         try:
             response = self.model.generate_content(prompt)
-            result = response.text.strip()
-            
-            if result.startswith('```json'):
-                result = result[7:-3]
-            elif result.startswith('```'):
-                result = result[3:-3]
-            
-            return json.loads(result)
+            return self._clean_json_response(response.text)
         except Exception as e:
             print(f"Error generating campaign strategy: {e}")
             return {"error": str(e)}

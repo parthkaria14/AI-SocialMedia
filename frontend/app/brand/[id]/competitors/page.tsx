@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { analyzeCompetitors, getTrendingContent } from '@/lib/api';
 import { Users, TrendingUp, Target, Lightbulb, AlertTriangle } from 'lucide-react';
 import BrandNavBar from '@/components/BrandNavBar';
+import { AILoader } from '@/components/Loaders';
 
 export default function CompetitorAnalysisPage() {
     const params = useParams();
@@ -122,21 +123,40 @@ export default function CompetitorAnalysisPage() {
                         >
                             + Add Another
                         </button>
-                        <button
-                            onClick={handleAnalyze}
-                            disabled={loading}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-                        >
-                            {loading ? 'Analyzing...' : 'Analyze Competitors'}
-                        </button>
-                        <button
-                            onClick={handleFindTrending}
-                            disabled={loading}
-                            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
-                        >
-                            {loading ? 'Finding...' : 'Find Trending Content'}
-                        </button>
+                        {!loading && (
+                            <>
+                                <button
+                                    onClick={handleAnalyze}
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                                >
+                                    Analyze Competitors
+                                </button>
+                                <button
+                                    onClick={handleFindTrending}
+                                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                                >
+                                    Find Trending Content
+                                </button>
+                            </>
+                        )}
                     </div>
+
+                    {/* Loading State */}
+                    {loading && (
+                        <div className="mt-4 bg-[var(--bg-tertiary)] rounded-xl border border-[var(--glass-border)]">
+                            <AILoader
+                                message="Analyzing competitors"
+                                variant="analysis"
+                                steps={[
+                                    'Fetching competitor profiles',
+                                    'Comparing metrics',
+                                    'Analyzing content strategy',
+                                    'Generating insights'
+                                ]}
+                                currentStep={1}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Tabs */}

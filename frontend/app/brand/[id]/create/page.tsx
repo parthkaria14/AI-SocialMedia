@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { getBrand, generateCaption, generateMultiplatformCaptions, generateSingleImage, createPost } from '@/lib/api';
 import { ArrowLeft, Wand2, Image as ImageIcon, Calendar, Copy, Check, Sparkles, Instagram, Twitter, Linkedin, Zap } from 'lucide-react';
 import Link from 'next/link';
+import { AILoader, InlineLoader } from '@/components/Loaders';
 
 export default function CreatePostPage() {
     const params = useParams();
@@ -36,19 +37,54 @@ export default function CreatePostPage() {
     useEffect(() => {
         loadBrand();
 
+        // Read all context params from URL
         const title = searchParams.get('title');
         const description = searchParams.get('description');
         const contentType = searchParams.get('contentType');
         const captionHook = searchParams.get('captionHook');
         const hashtagsParam = searchParams.get('hashtags');
+        const platform = searchParams.get('platform');
+        const contentIdea = searchParams.get('contentIdea');
+        const source = searchParams.get('source');
+        const adContext = searchParams.get('adContext');
+        const campaignName = searchParams.get('campaignName');
+        const campaignObjectives = searchParams.get('campaignObjectives');
 
-        if (title || description) {
+        // Build image prompt from various sources
+        let imagePrompt = description || '';
+        let imageTitle = title || '';
+        let caption = captionHook || '';
+
+        // Handle ad recommendation context
+        if (source === 'ad-recommendation' && adContext) {
+            try {
+                const context = JSON.parse(adContext);
+                if (context.contentTips && context.contentTips.length > 0) {
+                    imagePrompt = context.contentTips.join('. ') + '. ' + (contentIdea || '');
+                } else {
+                    imagePrompt = contentIdea || '';
+                }
+                imageTitle = `Ad for ${context.platform || 'Social Media'}`;
+            } catch (e) {
+                console.log('Could not parse ad context');
+            }
+        }
+
+        // Handle campaign strategy context
+        if (source === 'campaign-strategy' && contentIdea) {
+            imagePrompt = contentIdea;
+            imageTitle = campaignName || contentIdea.slice(0, 50);
+        }
+
+        // Apply updates from URL params
+        if (title || description || platform || contentIdea) {
             setFormData(prev => ({
                 ...prev,
-                imageTitle: title || prev.imageTitle,
-                imagePrompt: description || prev.imagePrompt,
-                contentType: contentType || 'image',
-                caption: captionHook || prev.caption,
+                platform: platform || prev.platform,
+                imageTitle: imageTitle || title || prev.imageTitle,
+                imagePrompt: imagePrompt || prev.imagePrompt,
+                contentType: contentType || prev.contentType || 'image',
+                caption: caption || prev.caption,
                 hashtags: hashtagsParam ? JSON.parse(hashtagsParam) : prev.hashtags,
             }));
         }
@@ -326,19 +362,28 @@ export default function CreatePostPage() {
                                     </p>
                                 </div>
 
-                                <button
-                                    onClick={handleGenerateImage}
-                                    disabled={generatingImage}
-                                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3.5 rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50"
-                                >
-                                    <ImageIcon className={`w-5 h-5 ${generatingImage ? 'animate-pulse' : ''}`} />
-                                    {generatingImage ? 'Generating High-Quality Image...' : 'Generate AI Image'}
-                                </button>
-
-                                {generatingImage && (
-                                    <p className="text-sm text-gray-400 text-center animate-pulse">
-                                        This may take 15-30 seconds for best quality...
-                                    </p>
+                                {generatingImage ? (
+                                    <div className="bg-[var(--bg-tertiary)] rounded-xl border border-[var(--glass-border)]">
+                                        <AILoader
+                                            message="Creating your image"
+                                            variant="image"
+                                            steps={[
+                                                'Analyzing prompt',
+                                                'Generating visuals',
+                                                'Enhancing quality',
+                                                'Finalizing'
+                                            ]}
+                                            currentStep={1}
+                                        />
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={handleGenerateImage}
+                                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3.5 rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/25 transition-all"
+                                    >
+                                        <ImageIcon className="w-5 h-5" />
+                                        Generate AI Image
+                                    </button>
                                 )}
                             </div>
                         </div>
@@ -350,10 +395,16 @@ export default function CreatePostPage() {
                                 <button
                                     onClick={handleGenerateCaption}
                                     disabled={generating}
-                                    className="flex items-center gap-2 text-purple-400 hover:text-purple-300 text-sm font-medium disabled:opacity-50 transition-colors"
+                                    className="flex items-center gap-2 text-purple-400 hover:text-purple-300 text-sm font-medium disabled:opacity-50 transition-colors px-3 py-1.5 rounded-lg hover:bg-purple-500/10"
                                 >
-                                    <Wand2 className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-                                    {generating ? 'Generating...' : 'AI Generate'}
+                                    {generating ? (
+                                        <InlineLoader text="Generating" />
+                                    ) : (
+                                        <>
+                                            <Wand2 className="w-4 h-4" />
+                                            AI Generate
+                                        </>
+                                    )}
                                 </button>
                             </div>
                             <textarea
@@ -443,12 +494,27 @@ export default function CreatePostPage() {
 
                             {/* Image Preview */}
                             {formData.generatedImageUrl && (
-                                <div className="mb-4 rounded-xl overflow-hidden border border-white/10">
-                                    <img
-                                        src={formData.generatedImageUrl}
-                                        alt="Generated"
-                                        className="w-full h-auto"
-                                    />
+                                <div className="mb-4 relative group">
+                                    <div className="rounded-xl overflow-hidden border border-white/10">
+                                        <img
+                                            src={formData.generatedImageUrl}
+                                            alt="Generated"
+                                            className="w-full h-auto"
+                                        />
+                                    </div>
+                                    {/* Download Button */}
+                                    <a
+                                        href={formData.generatedImageUrl}
+                                        download={`social-ai-image-${Date.now()}.png`}
+                                        className="absolute top-3 right-3 p-2.5 rounded-lg bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-all opacity-0 group-hover:opacity-100"
+                                        title="Download image"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                            <polyline points="7 10 12 15 17 10" />
+                                            <line x1="12" y1="15" x2="12" y2="3" />
+                                        </svg>
+                                    </a>
                                 </div>
                             )}
 
