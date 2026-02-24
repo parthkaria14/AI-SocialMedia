@@ -13,31 +13,46 @@ An AI-powered social media management platform that helps brands create, schedul
 - **Brand Analyzer** - Analyzes Instagram profiles to understand brand voice, target audience, and content themes
 - **Content Generator** - Creates AI-powered content ideas, captions, and hashtag suggestions
 - **Campaign Agent** - Generates marketing strategies, analyzes campaigns, and recommends ad platforms
-- **Image Generator** - Creates high-quality AI images using Pollinations.ai
+- **Competitor Analyzer** - SWOT analysis, competitor comparison, and trending content identification
+- **Image Generator** - Creates high-quality AI images using Pollinations.ai with optional text overlays
 
 ### 📊 Dashboard
 - Multi-brand management with visual stats
 - Brand profile analysis with status indicators
 - Quick access to all brand features
+- Create and delete brands
 
 ### 📝 Content Creation
 - AI-powered caption generation for any platform
 - Multi-platform caption optimization (Instagram, Twitter, LinkedIn)
-- AI image generation with custom prompts
+- AI image generation with custom prompts and text overlays
 - Hashtag suggestions and scheduling
 - Download generated images directly
 
 ### 📈 Campaign Management
-- Create and track marketing campaigns
+- Create, update, and delete marketing campaigns
+- Campaign status management (draft, active, paused, completed)
 - AI performance analysis
 - AI-generated campaign strategies with content calendars
 - Link Instagram posts to campaigns
+- Campaign performance metrics tracking
 
 ### 💡 Ad Recommendations
 - AI-powered platform recommendations
 - Budget allocation suggestions
 - Expected ROI calculations
 - One-click content creation from recommendations
+
+### 🔍 Competitor Analysis
+- Instagram competitor comparison with metrics
+- SWOT analysis (Strengths, Weaknesses, Opportunities, Threats)
+- Trending content identification
+- Strategic recommendations based on competitive landscape
+
+### 📅 Post Scheduling
+- Create and manage draft/scheduled posts
+- Celery-based background task scheduling
+- Social media auto-posting via Instagram API
 
 ### 🔗 Agent Interconnectivity
 - Create content directly from ad recommendations
@@ -52,6 +67,8 @@ An AI-powered social media management platform that helps brands create, schedul
 - **Tailwind CSS v4** with custom dark theme
 - **Lucide React** for icons
 - **Recharts** for analytics visualization
+- **Axios** for HTTP requests
+- **date-fns** for date formatting
 
 ### Backend
 - **FastAPI** with Python 3.11+
@@ -59,6 +76,7 @@ An AI-powered social media management platform that helps brands create, schedul
 - **Google Gemini 2.5 Flash** for AI generation
 - **Pollinations.ai** for image generation
 - **Instaloader** for Instagram scraping
+- **Celery + Redis** for background task scheduling
 
 ## 🚀 Getting Started
 
@@ -66,6 +84,7 @@ An AI-powered social media management platform that helps brands create, schedul
 - Node.js 18+
 - Python 3.11+
 - Google Gemini API key
+- Redis (optional, for post scheduling)
 
 ### Backend Setup
 
@@ -80,8 +99,8 @@ source venv/bin/activate  # Linux/Mac
 # Install dependencies
 pip install -r requirements.txt
 
-# Create .env file
-echo "GEMINI_API_KEY=your_gemini_api_key" > .env
+# Create .env file (see Environment Variables section below)
+cp .env.example .env
 
 # Run the server
 python main.py
@@ -112,39 +131,61 @@ Frontend runs at: `http://localhost:3000`
 project/
 ├── backend/
 │   ├── agents/
-│   │   ├── brand_analyzer.py    # Instagram analysis
-│   │   ├── content_agent.py     # Content generation
-│   │   └── campaign_agent.py    # Campaigns & ads
+│   │   ├── brand_analyzer.py        # Brand analysis & content generation
+│   │   ├── campaign_agent.py        # Campaign strategies & ad recommendations
+│   │   └── competitor_analyzer.py   # Competitor SWOT & trending analysis
+│   ├── generators/
+│   │   ├── image_generator.py       # AI image generation with text overlays
+│   │   └── pollinations_v2.py       # Pollinations.ai API client
+│   ├── models/
+│   │   ├── database.py              # SQLAlchemy models & DB setup
+│   │   └── check_posts.py           # Post validation utilities
+│   ├── schedulers/
+│   │   ├── celery_tasks.py          # Celery background tasks
+│   │   └── social_poster.py         # Social media auto-posting
+│   ├── scrapers/
+│   │   └── instagram_scraper.py     # Instagram profile & post scraping
 │   ├── data/
-│   │   ├── generated_images/    # AI-generated images
-│   │   └── database.db          # SQLite database
-│   ├── scraping/
-│   │   └── insta_scraper.py     # Instagram scraper
-│   └── main.py                  # FastAPI application
+│   │   └── generated_images/        # AI-generated images
+│   ├── main.py                      # FastAPI application (all routes)
+│   ├── agency.db                    # SQLite database
+│   ├── test_api.py                  # API integration tests
+│   ├── test_system.py               # System-level tests
+│   └── .env                         # Environment variables
 │
 ├── frontend/
 │   ├── app/
-│   │   ├── page.tsx             # Dashboard
+│   │   ├── page.tsx                 # Dashboard (home page)
+│   │   ├── layout.tsx               # Root layout
+│   │   ├── globals.css              # Global styles & theme
 │   │   └── brand/[id]/
-│   │       ├── page.tsx         # Brand detail
-│   │       ├── create/          # Content creation
-│   │       ├── campaigns/       # Campaign management
-│   │       ├── analytics/       # Analytics view
-│   │       ├── ad-recommendations/  # AI ad suggestions
-│   │       └── competitors/     # Competitor analysis
+│   │       ├── page.tsx             # Brand detail page
+│   │       ├── create/              # Content creation page
+│   │       ├── campaigns/           # Campaign management page
+│   │       ├── analytics/           # Analytics dashboard
+│   │       ├── ad-recommendations/  # AI ad suggestions page
+│   │       └── competitors/         # Competitor analysis page
 │   ├── components/
-│   │   ├── Loaders.tsx          # Loading components
-│   │   ├── BrandNavBar.tsx      # Navigation
-│   │   └── ContentGrid.tsx      # Content display
-│   └── lib/
-│       └── api.ts               # API client
+│   │   ├── BrandNavBar.tsx          # Shared brand navigation bar
+│   │   ├── ContentGrid.tsx          # Content display grid
+│   │   ├── CreateBrandModal.tsx     # Brand creation modal
+│   │   └── Loaders.tsx              # AI loading components
+│   ├── hooks/
+│   │   └── useScrollReveal.ts       # Scroll animation hook
+│   ├── lib/
+│   │   ├── api.ts                   # API client (Axios)
+│   │   └── helpers.ts               # Utility functions
+│   └── public/                      # Static assets
+│
+├── requirements.txt                 # Python dependencies
+└── readme.md
 ```
 
 ## 🎨 UI/UX Features
 
 - **Dark Theme** - Modern dark UI with glassmorphism effects
 - **AI Loading Bars** - Engaging progress indicators with step-by-step feedback
-- **Smooth Animations** - Fade-in effects and hover transitions
+- **Smooth Animations** - Fade-in effects, hover transitions, and scroll reveal
 - **Responsive Design** - Works on all screen sizes
 
 ## 📝 API Endpoints
@@ -153,30 +194,82 @@ project/
 - `GET /brands/` - List all brands
 - `POST /brands/` - Create a brand
 - `GET /brands/{id}` - Get brand details
+- `DELETE /brands/{id}` - Delete a brand and all associated data
 - `POST /brands/{id}/sync` - Sync Instagram data
 
 ### Content
 - `POST /content/generate` - Generate content ideas
-- `POST /content/caption` - Generate captions
-- `POST /content/multiplatform-captions` - Multi-platform captions
+- `POST /content/caption` - Generate platform-optimized caption
+- `POST /content/caption-multiplatform` - Generate captions for multiple platforms
+
+### Posts
+- `POST /posts/` - Create a post (draft or scheduled)
+- `GET /posts/brand/{id}` - Get all posts for a brand
 
 ### Images
-- `POST /images/generate-single` - Generate AI image
+- `POST /images/generate` - Batch generate images for content ideas
+- `POST /images/generate-single` - Generate single AI image
+- `GET /api/images/{filename}` - Serve generated image files
 
 ### Campaigns
+- `POST /campaigns/` - Create a campaign
 - `GET /campaigns/brand/{id}` - List brand campaigns
-- `POST /campaigns/` - Create campaign
-- `POST /campaigns/{id}/analyze` - AI analysis
-- `POST /campaigns/{id}/strategy` - AI strategy
+- `PUT /campaigns/{id}` - Update campaign details
+- `DELETE /campaigns/{id}` - Delete a campaign
+- `PATCH /campaigns/{id}/status` - Update campaign status
+- `GET /campaigns/{id}/performance` - Get campaign performance metrics
+- `POST /campaigns/{id}/analyze` - AI performance analysis
+- `POST /campaigns/{id}/strategy` - AI campaign strategy generation
+- `POST /campaigns/ad-recommendations` - AI ad platform recommendations
+
+### Instagram Posts
+- `GET /instagram-posts/brand/{id}` - Get scraped Instagram posts
+- `GET /instagram-posts/campaign/{id}` - Get posts linked to a campaign
+- `POST /instagram-posts/campaign/{id}/link` - Link posts to a campaign
+- `POST /instagram-posts/campaign/{id}/unlink` - Unlink posts from a campaign
+
+### Competitors
+- `POST /competitors/analyze` - Analyze competitors (SWOT analysis)
+- `POST /competitors/trending` - Identify trending competitor content
 
 ### Analytics
-- `GET /analytics/brand/{id}` - Get brand analytics
+- `GET /analytics/brand/{id}` - Get brand analytics summary
+- `GET /analytics/chart-data/{id}` - Get chart-formatted analytics data
+
+### Strategy
+- `POST /strategy/generate/{id}` - Generate marketing strategy
 
 ## 🔐 Environment Variables
 
 ### Backend (.env)
-```
+```env
+# AI APIs
 GEMINI_API_KEY=your_gemini_api_key
+GROQ_API_KEY=your_groq_api_key           # Optional
+POLLINATIONS_API_KEY=your_pollinations_key
+HUGGINGFACE_TOKEN=your_hf_token           # Optional
+
+# Database
+DATABASE_URL=sqlite:///./agency.db
+REDIS_URL=redis://localhost:6379          # For Celery scheduling
+
+# Instagram Credentials (optional - for auto-posting)
+INSTAGRAM_USERNAME=
+INSTAGRAM_PASSWORD=
+
+# Twitter API (optional)
+TWITTER_API_KEY=
+TWITTER_API_SECRET=
+TWITTER_ACCESS_TOKEN=
+TWITTER_ACCESS_SECRET=
+
+# LinkedIn (optional)
+LINKEDIN_EMAIL=
+LINKEDIN_PASSWORD=
+
+# Application
+SECRET_KEY=your_secret_key
+DEBUG=True
 ```
 
 ### Frontend (.env.local)

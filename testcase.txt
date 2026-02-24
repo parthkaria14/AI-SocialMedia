@@ -1,0 +1,33 @@
+Test Case ID	Test Description	Expected Result	Actual Status
+TC_B01	Create a new brand with valid Instagram handle	Brand is created successfully and appears in dashboard	PASS
+TC_B02	Create a brand with invalid/non-existent Instagram handle	Error message shown: "Instagram profile not found"	PASS
+TC_B03	Create a brand without providing Instagram handle	Error message shown: "Instagram handle is required"	PASS
+TC_B04	Sync brand data from Instagram	Brand profile data is updated with latest posts and metrics	PASS
+TC_B05	Delete an existing brand	Brand and all associated data is deleted successfully	PASS
+TC_B06	View brand details page	Brand info, analysis status, and metrics are displayed correctly	PASS
+TC_C01	Generate content ideas for a brand	AI generates 5 content ideas with titles and descriptions	PASS
+TC_C02	Generate caption for Instagram platform	AI generates platform-optimized caption with hashtags	PASS
+TC_C03	Generate multi-platform captions (Instagram, Twitter, LinkedIn)	System generates optimized captions for all three platforms	PASS
+TC_C04	Generate caption without selecting content idea	Error message shown: "Please select a content idea first"	PASS
+TC_C05	Generate content for brand without completed analysis	Error message shown: "Brand analysis not complete"	PASS
+TC_I01	Generate AI image with valid prompt	Image is generated and displayed in the preview area	PASS
+TC_I02	Generate image without providing prompt	Error message shown: "Please enter a prompt"	PASS
+TC_I03	Download generated image	Image downloads successfully to user's device	PASS
+TC_I04	Generate image with custom dimensions (width/height)	Image is generated with specified dimensions (e.g., 1080x1080)	PASS
+TC_I05	Generate image with text overlay	Image includes the specified text overlay on the generated image	PASS
+TC_CM01	Create a new campaign with valid details	Campaign is created and listed in campaigns page	PASS
+TC_CM02	Create campaign without providing campaign name	Error message shown: "Campaign name is required"	PASS
+TC_CM03	Update campaign status (draft to active)	Campaign status updates successfully and reflects in UI	PASS
+TC_CM04	Delete an existing campaign	Campaign is deleted and removed from the list	PASS
+TC_CM05	Link Instagram posts to campaign	Posts are linked and campaign metrics are updated accordingly	PASS
+TC_CM06	Unlink posts from campaign	Posts are unlinked and metrics recalculated	PASS
+TC_CM07	Generate AI campaign strategy	AI generates strategy with content calendar and recommendations	PASS
+TC_CM08	Analyze campaign performance	AI provides performance analysis with insights and suggestions	PASS
+TC_AD01	Get AI ad platform recommendations with valid budget and objectives	System provides platform recommendations with ROI estimates	PASS
+TC_AD02	Get recommendations without specifying budget	Error message shown: "Please enter your budget"	PASS
+TC_AD03	Create content from ad recommendation	User is redirected to create page with pre-filled context	PASS
+TC_CP01	Analyze competitors with valid Instagram handles	System provides competitor analysis with insights and comparisons	PASS
+TC_CP02	Analyze competitors without providing any handles	Error message shown: "Please add at least one competitor"	PASS
+TC_CP03	Get trending content from competitors	System identifies and displays trending content from competitors	PASS
+TC_AN01	View brand analytics page	Analytics dashboard displays engagement metrics and charts	PASS
+TC_AN02	View chart data for different time periods (7/30/90 days)	Charts update to show data for selected time range	PASS
