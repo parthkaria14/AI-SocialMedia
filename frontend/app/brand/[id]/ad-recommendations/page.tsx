@@ -276,6 +276,22 @@ export default function AdRecommendationsPage() {
                 {/* Recommendations */}
                 {recommendations && recommendations.recommendations && (
                     <div className="space-y-6">
+                        {/* Agent Collaboration Badge */}
+                        {recommendations.agent_collaboration?.enriched && (
+                            <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg p-4 flex items-start gap-3 animate-fadeIn">
+                                <Wand2 className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <h4 className="text-sm font-bold text-purple-700">Multi-Agent Enrichment Active</h4>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        {recommendations.agent_collaboration.enrichment_details || "These recommendations were enhanced by competitor insights."}
+                                        <span className="block mt-1 text-xs text-gray-500 font-medium">
+                                            Agents involved: {recommendations.agent_collaboration.agents_involved.join(' + ')}
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Budget Allocation Summary */}
                         {recommendations.budget_allocation && (
                             <div className="bg-blue-600 rounded-lg shadow p-6">

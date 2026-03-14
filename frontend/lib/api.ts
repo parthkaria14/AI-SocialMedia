@@ -111,6 +111,11 @@ export const getBrandPosts = async (brandId: number, status?: string) => {
     return response.data;
 };
 
+export const getPost = async (postId: number) => {
+    const response = await api.get(`/posts/${postId}`);
+    return response.data;
+};
+
 // Analytics APIs
 export const getBrandAnalytics = async (brandId: number) => {
     const response = await api.get(`/analytics/brand/${brandId}`);

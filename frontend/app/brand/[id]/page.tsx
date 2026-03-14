@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getBrand, generateContent, getBrandAnalytics, syncBrand, getBrandPosts } from '@/lib/api';
-import { RefreshCw, Sparkles, Calendar, Target, Activity, CheckCircle, Lightbulb, Plus, ArrowRight, Zap, Image, Video, Layout } from 'lucide-react';
+import { RefreshCw, Sparkles, Calendar, Target, Activity, CheckCircle, Lightbulb, Plus, ArrowRight, Zap, Image, Video, Layout, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import BrandNavBar from '@/components/BrandNavBar';
 import { RingLoader, InlineLoader, AILoader } from '@/components/Loaders';
@@ -16,6 +16,7 @@ export default function BrandDetailPage() {
     const [brand, setBrand] = useState<any>(null);
     const [analytics, setAnalytics] = useState<any>(null);
     const [contentIdeas, setContentIdeas] = useState<any[]>([]);
+    const [agentCollaboration, setAgentCollaboration] = useState<any>(null);
     const [savedPosts, setSavedPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
@@ -61,6 +62,9 @@ export default function BrandDetailPage() {
         try {
             const result = await generateContent(brandId, 'instagram', 5);
             setContentIdeas(result.content_ideas);
+            if (result.agent_collaboration) {
+                setAgentCollaboration(result.agent_collaboration);
+            }
             setActiveTab('content');
         } catch (error) {
             alert('Failed to generate content');
@@ -344,7 +348,7 @@ export default function BrandDetailPage() {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {savedPosts.map((post: any, index: number) => (
-                                        <div key={post.id} className="group glass-card overflow-hidden hover:border-white/15 transition-all duration-300 animate-fadeIn" style={{ animationDelay: `${index * 0.1}s` }}>
+                                        <Link key={post.id} href={`/brand/${brandId}/post/${post.id}`} className="group glass-card overflow-hidden hover:border-white/15 transition-all duration-300 animate-fadeIn block cursor-pointer" style={{ animationDelay: `${index * 0.1}s` }}>
                                             {/* Post Image */}
                                             {post.media_urls && post.media_urls.length > 0 ? (
                                                 <div className="aspect-square bg-gray-900 relative overflow-hidden">
@@ -409,7 +413,7 @@ export default function BrandDetailPage() {
                                                     </p>
                                                 )}
                                             </div>
-                                        </div>
+                                        </Link>
                                     ))}
                                 </div>
                             )}
@@ -446,7 +450,23 @@ export default function BrandDetailPage() {
                                     </p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-6">
+                                    {/* Agent Collaboration Badge */}
+                                    {agentCollaboration?.enriched && (
+                                        <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg p-4 flex items-start gap-3 animate-fadeIn mb-6">
+                                            <Wand2 className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" />
+                                            <div>
+                                                <h4 className="text-sm font-bold text-purple-400">Multi-Agent Enrichment Active</h4>
+                                                <p className="text-sm text-gray-400 mt-1">
+                                                    {agentCollaboration.enrichment_details || "These ideas were enhanced by competitor insights."}
+                                                    <span className="block mt-1 text-xs text-gray-500 font-medium">
+                                                        Agents involved: {agentCollaboration.agents_involved?.join(' + ')}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {contentIdeas.map((idea, idx) => (
                                         <div key={idx} className="glass-card p-6 hover:border-white/15 transition-all animate-fadeIn" style={{ animationDelay: `${idx * 0.1}s` }}>
                                             <div className="flex items-start justify-between mb-3">
@@ -490,6 +510,7 @@ export default function BrandDetailPage() {
                                             </div>
                                         </div>
                                     ))}
+                                    </div>
                                 </div>
                             )}
                         </div>

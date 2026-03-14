@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { getBrand, getBrandCampaigns, createCampaign, updateCampaignStatus, deleteCampaign, analyzeCampaign, generateCampaignStrategy, getInstagramPosts, getCampaignInstagramPosts, linkPostsToCampaign, unlinkPostsFromCampaign, InstagramPost } from '@/lib/api';
-import { Plus, Rocket, DollarSign, Target, Calendar, TrendingUp, Activity, Play, Pause, CheckCircle, Trash2, BarChart3, Lightbulb, X, Sparkles, Eye, Image, Link2, Unlink } from 'lucide-react';
+import { Plus, Rocket, DollarSign, Target, Calendar, TrendingUp, Activity, Play, Pause, CheckCircle, Trash2, BarChart3, Lightbulb, X, Sparkles, Eye, Image, Link2, Unlink, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import BrandNavBar from '@/components/BrandNavBar';
 import { RingLoader, InlineLoader, AILoader } from '@/components/Loaders';
@@ -1022,6 +1022,22 @@ function CampaignDetailModal({ campaign, brandId, onClose, onRefresh }: any) {
                         <div className="space-y-6">
                             {strategy ? (
                                 <>
+                                    {/* Agent Collaboration Badge */}
+                                    {strategy.agent_collaboration?.enriched && (
+                                        <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg p-4 flex items-start gap-3 animate-fadeIn mb-6">
+                                            <Wand2 className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
+                                            <div>
+                                                <h4 className="text-sm font-bold text-purple-700">Multi-Agent Enrichment Active</h4>
+                                                <p className="text-sm text-gray-600 mt-1">
+                                                    This strategy incorporates competitor analysis and positioning data.
+                                                    <span className="block mt-1 text-xs text-gray-500 font-medium">
+                                                        Agents involved: {strategy.agent_collaboration.agents_involved?.join(' + ')}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Campaign Theme */}
                                     <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
                                         <div className="text-sm text-gray-500 mb-2">Campaign Theme</div>

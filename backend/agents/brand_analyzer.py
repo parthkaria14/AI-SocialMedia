@@ -4,52 +4,192 @@ import os
 import json
 from dotenv import load_dotenv
 
+from agents.base_agent import BaseAgent
+
 load_dotenv()
 
-class BrandAnalyzer:
+class BrandAnalyzer(BaseAgent):
+    
+    name = "brand_analyzer"
+    description = "Analyzes brand identity from social media data and generates content ideas, captions, and performance insights."
+    capabilities = [
+        "analyze_brand_profile",
+        "generate_content_ideas",
+        "generate_caption",
+        "analyze_performance"
+    ]
+    
     def __init__(self):
-        # Primary: Gemini
-        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
-        
-        # Backup: Groq
-        self.groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
-        self.groq_model = "openai/gpt-oss-120b"
+        super().__init__()
     
-    def _generate_content(self, prompt: str) -> str:
+    # ─── Orchestrator Interface ────────────────────────────────────
+    
+    def execute(self, task: str, shared_memory) -> dict:
         """
-        Generate content using Gemini with Groq fallback.
-        Returns the raw text response.
+        Called by the orchestrator. Routes to the appropriate method
+        based on the task, reads context from shared memory, and
+        writes results back.
         """
-        # Try Gemini first
-        try:
-            response = self.model.generate_content(prompt)
-            return response.text.strip()
-        except Exception as gemini_error:
-            print(f"Gemini failed: {gemini_error}. Falling back to Groq...")
+        step = shared_memory.start_step(self.name, task)
         
-        # Fallback to Groq
         try:
-            response = self.groq_client.chat.completions.create(
-                model=self.groq_model,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=4096
+            task_lower = task.lower()
+            
+            if "analyze" in task_lower and "brand" in task_lower:
+                return self._execute_analyze_brand(task, shared_memory, step)
+            elif "content" in task_lower and ("idea" in task_lower or "generate" in task_lower):
+                return self._execute_generate_content(task, shared_memory, step)
+            elif "caption" in task_lower:
+                return self._execute_generate_caption(task, shared_memory, step)
+            elif "performance" in task_lower:
+                return self._execute_analyze_performance(task, shared_memory, step)
+            else:
+                # Default: try to analyze brand
+                return self._execute_analyze_brand(task, shared_memory, step)
+        except Exception as e:
+            step.complete(success=False, error=str(e))
+            return {"success": False, "error": str(e)}
+    
+    def _execute_analyze_brand(self, task, shared_memory, step):
+        """Analyze brand profile using scraped data from shared memory."""
+        # Read scraped data from shared memory (written by scraper)
+        scraped_data = shared_memory.read("scraped_data", {})
+        step.input_summary = f"Analyzing brand from scraped data with {len(scraped_data.get('posts', []))} posts"
+        
+        if not scraped_data:
+            step.complete(success=False, error="No scraped data available in shared memory")
+            return {"success": False, "error": "No scraped data in shared memory"}
+        
+        # Perform analysis
+        brand_profile = self.analyze_brand_profile(scraped_data)
+        
+        # Write results to shared memory
+        shared_memory.write(self.name, "brand_context", brand_profile, merge=True)
+        
+        # Check for competitor insights and enrich if available
+        competitor_insights = shared_memory.read("competitor_insights", {})
+        if competitor_insights:
+            # Send message to note that competitor data was used
+            shared_memory.send_message(
+                self.name, "campaign_agent",
+                "Brand analysis complete. Competitor insights were available and may inform content strategy.",
+                {"brand_voice": brand_profile.get("brand_voice"), "has_competitor_data": True}
             )
-            return response.choices[0].message.content.strip()
-        except Exception as groq_error:
-            print(f"Groq also failed: {groq_error}")
-            raise Exception(f"Both Gemini and Groq failed. Gemini: {gemini_error}, Groq: {groq_error}")
+        
+        step.complete(
+            success=True,
+            output_summary=f"Brand profile analyzed: voice={brand_profile.get('brand_voice', 'unknown')}, "
+                          f"themes={len(brand_profile.get('content_themes', []))} themes identified"
+        )
+        
+        return {"success": True, "data": brand_profile}
     
-    def _parse_json_response(self, result: str):
-        """Parse JSON from AI response, handling markdown code blocks."""
-        if result.startswith('```json'):
-            result = result[7:-3]
-        elif result.startswith('```'):
-            result = result[3:-3]
-        return json.loads(result)
+    def _execute_generate_content(self, task, shared_memory, step):
+        """Generate content ideas using brand context from shared memory."""
+        brand_context = shared_memory.read("brand_context", {})
+        step.input_summary = f"Generating content with brand voice: {brand_context.get('brand_voice', 'unknown')}"
+        
+        if not brand_context:
+            step.complete(success=False, error="No brand context available")
+            return {"success": False, "error": "No brand context in shared memory"}
+        
+        # Check for messages from other agents (e.g., competitor insights)
+        messages = shared_memory.get_messages_for(self.name)
+        
+        # Enrich context using competitor insights if available
+        competitor_insights = shared_memory.read("competitor_insights", {})
+        platform = "instagram"  # Default
+        count = 5
+        
+        # If competitor data is available, use trending topics to inform ideas
+        enriched_profile = dict(brand_context)
+        if competitor_insights:
+            analysis = competitor_insights.get("analysis", {})
+            gaps = analysis.get("competitive_gaps", [])
+            if gaps:
+                enriched_profile["competitive_gaps_to_address"] = gaps
+            
+            # Notify campaign agent about content generation
+            shared_memory.send_message(
+                self.name, "campaign_agent",
+                "Content ideas generated with competitor gap analysis incorporated.",
+                {"used_competitor_data": True, "gaps_addressed": gaps}
+            )
+        
+        content_ideas = self.generate_content_ideas(enriched_profile, platform=platform, count=count)
+        
+        # Write to shared memory
+        shared_memory.write(self.name, "content_drafts", content_ideas)
+        
+        step.complete(
+            success=True,
+            output_summary=f"Generated {len(content_ideas)} content ideas for {platform}"
+        )
+        
+        return {"success": True, "data": content_ideas}
+    
+    def _execute_generate_caption(self, task, shared_memory, step):
+        """Generate captions for content drafts in shared memory."""
+        brand_context = shared_memory.read("brand_context", {})
+        content_drafts = shared_memory.read("content_drafts", [])
+        step.input_summary = f"Generating captions for {len(content_drafts)} content drafts"
+        
+        if not brand_context or not content_drafts:
+            step.complete(success=False, error="Missing brand context or content drafts")
+            return {"success": False, "error": "Need brand_context and content_drafts in shared memory"}
+        
+        captions = []
+        for idea in content_drafts[:5]:
+            caption_data = self.generate_caption(brand_context, idea, platform="instagram")
+            captions.append(caption_data)
+        
+        # Write captions back - update content drafts with captions
+        enriched_drafts = []
+        for i, idea in enumerate(content_drafts[:5]):
+            enriched = dict(idea)
+            if i < len(captions):
+                enriched["generated_caption"] = captions[i]
+            enriched_drafts.append(enriched)
+        
+        shared_memory.write(self.name, "content_drafts", enriched_drafts)
+        
+        step.complete(
+            success=True,
+            output_summary=f"Generated {len(captions)} captions for content ideas"
+        )
+        
+        return {"success": True, "data": captions}
+    
+    def _execute_analyze_performance(self, task, shared_memory, step):
+        """Analyze performance and write recommendations."""
+        # This would typically read analytics data from shared memory
+        analytics_data = shared_memory.read("analytics_data", [])
+        step.input_summary = f"Analyzing performance of {len(analytics_data)} data points"
+        
+        if not analytics_data:
+            step.complete(success=False, error="No analytics data available")
+            return {"success": False, "error": "No analytics data in shared memory"}
+        
+        analysis = self.analyze_performance(analytics_data)
+        
+        shared_memory.write(self.name, "performance_analysis", analysis)
+        
+        # Send recommendations to campaign agent
+        if analysis.get("recommendations"):
+            shared_memory.send_message(
+                self.name, "campaign_agent",
+                "Performance analysis complete. Recommendations available for campaign optimization.",
+                {"recommendations": analysis["recommendations"]}
+            )
+        
+        step.complete(
+            success=True,
+            output_summary=f"Performance analyzed: {len(analysis.get('recommendations', []))} recommendations"
+        )
+        
+        return {"success": True, "data": analysis}
+    
+    # ─── Original Methods (unchanged) ─────────────────────────────
     
     def analyze_brand_profile(self, brand_data):
         """
@@ -107,6 +247,12 @@ Return ONLY valid JSON, no markdown formatting.
         """
         Generate content ideas based on brand profile
         """
+        # Include competitive gaps if available
+        competitive_gaps = brand_profile.get('competitive_gaps_to_address', [])
+        gaps_section = ""
+        if competitive_gaps:
+            gaps_section = f"\nCOMPETITIVE GAPS TO ADDRESS:\n{chr(10).join(['- ' + g for g in competitive_gaps])}\n"
+        
         prompt = f"""
 Based on this brand profile, generate {count} creative content ideas for {platform}:
 
@@ -114,7 +260,7 @@ BRAND VOICE: {brand_profile.get('brand_voice')}
 TARGET AUDIENCE: {brand_profile.get('target_audience')}
 CONTENT THEMES: {', '.join(brand_profile.get('content_themes', []))}
 CONTENT PILLARS: {', '.join(brand_profile.get('content_pillars', []))}
-
+{gaps_section}
 Generate content ideas that:
 - Align with the brand voice and themes
 - Engage the target audience

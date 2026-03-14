@@ -7,35 +7,183 @@ import os
 import json
 from dotenv import load_dotenv
 
+from agents.base_agent import BaseAgent
+
 load_dotenv()
 
-class CampaignAgent:
-    def __init__(self):
-        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+class CampaignAgent(BaseAgent):
     
-    def _clean_json_response(self, text):
-        """Clean and parse JSON from LLM response"""
-        result = text.strip()
+    name = "campaign_agent"
+    description = "Generates marketing strategies, analyzes campaign performance, recommends ad platforms, and allocates budgets."
+    capabilities = [
+        "recommend_ad_platforms",
+        "analyze_campaign_performance",
+        "generate_campaign_strategy",
+        "calculate_campaign_metrics"
+    ]
+    
+    def __init__(self):
+        super().__init__()
+    
+    # ─── Orchestrator Interface ────────────────────────────────────
+    
+    def execute(self, task: str, shared_memory) -> dict:
+        """
+        Called by the orchestrator. Routes to the appropriate method
+        based on the task, reads context from shared memory.
+        """
+        step = shared_memory.start_step(self.name, task)
         
-        # Remove markdown code blocks
-        if result.startswith('```json'):
-            result = result[7:]
-        if result.startswith('```'):
-            result = result[3:]
-        if result.endswith('```'):
-            result = result[:-3]
+        try:
+            task_lower = task.lower()
+            
+            if "ad" in task_lower and ("recommend" in task_lower or "platform" in task_lower):
+                return self._execute_ad_recommendations(task, shared_memory, step)
+            elif "analyz" in task_lower and "campaign" in task_lower:
+                return self._execute_analyze_campaign(task, shared_memory, step)
+            elif "strategy" in task_lower or "plan" in task_lower:
+                return self._execute_generate_strategy(task, shared_memory, step)
+            else:
+                # Default: generate strategy
+                return self._execute_generate_strategy(task, shared_memory, step)
+        except Exception as e:
+            step.complete(success=False, error=str(e))
+            return {"success": False, "error": str(e)}
+    
+    def _execute_ad_recommendations(self, task, shared_memory, step):
+        """Generate ad platform recommendations using shared context."""
+        brand_context = shared_memory.read("brand_context", {})
+        step.input_summary = f"Generating ad recommendations for brand voice: {brand_context.get('brand_voice', 'unknown')}"
         
-        result = result.strip()
+        if not brand_context:
+            step.complete(success=False, error="No brand context available")
+            return {"success": False, "error": "No brand context in shared memory"}
         
-        # Fix common JSON issues from LLM
-        import re
-        # Remove trailing commas before } or ]
-        result = re.sub(r',\s*([}\]])', r'\1', result)
-        # Remove any JavaScript-style comments
-        result = re.sub(r'//.*?\n', '\n', result)
+        # Check for messages from other agents
+        messages = shared_memory.get_messages_for(self.name)
         
-        return json.loads(result)
+        # Use competitor insights to inform recommendations
+        competitor_insights = shared_memory.read("competitor_insights", {})
+        objectives = ["brand_awareness", "engagement"]
+        if competitor_insights:
+            analysis = competitor_insights.get("analysis", {})
+            gaps = analysis.get("competitive_gaps", [])
+            if gaps:
+                objectives.append("competitive_differentiation")
+        
+        budget = 1000  # Default
+        target_metrics = {"target_ctr": 2.0, "target_conversions": 50}
+        
+        recommendations = self.recommend_ad_platforms(
+            brand_context, objectives, budget, target_metrics
+        )
+        
+        # Write to shared memory
+        shared_memory.write(self.name, "campaign_context", {
+            "ad_recommendations": recommendations,
+            "used_competitor_insights": bool(competitor_insights)
+        }, merge=True)
+        
+        # Send message to brand analyzer about recommended platforms
+        if recommendations.get("recommendations"):
+            top_platform = recommendations["recommendations"][0].get("platform", "unknown")
+            shared_memory.send_message(
+                self.name, "brand_analyzer",
+                f"Top recommended ad platform: {top_platform}. Content should be optimized for this platform.",
+                {"top_platform": top_platform, "all_platforms": [r.get("platform") for r in recommendations.get("recommendations", [])]}
+            )
+        
+        step.complete(
+            success=True,
+            output_summary=f"Generated {len(recommendations.get('recommendations', []))} ad platform recommendations"
+        )
+        
+        return {"success": True, "data": recommendations}
+    
+    def _execute_analyze_campaign(self, task, shared_memory, step):
+        """Analyze campaign performance using shared context."""
+        campaign_context = shared_memory.read("campaign_context", {})
+        step.input_summary = "Analyzing campaign performance"
+        
+        campaign_data = campaign_context.get("campaign_data", {})
+        analytics_data = campaign_context.get("analytics_data", [])
+        
+        if not campaign_data:
+            step.complete(success=False, error="No campaign data available")
+            return {"success": False, "error": "No campaign data in shared memory"}
+        
+        analysis = self.analyze_campaign_performance(campaign_data, analytics_data)
+        
+        shared_memory.write(self.name, "campaign_context", {
+            "performance_analysis": analysis
+        }, merge=True)
+        
+        # Send insights to brand analyzer for content optimization
+        if analysis.get("optimization_recommendations"):
+            shared_memory.send_message(
+                self.name, "brand_analyzer",
+                "Campaign analysis complete. Content optimization recommendations available.",
+                {"recommendations": analysis["optimization_recommendations"][:3]}
+            )
+        
+        step.complete(
+            success=True,
+            output_summary=f"Campaign analyzed: {analysis.get('overall_performance', 'unknown')} performance"
+        )
+        
+        return {"success": True, "data": analysis}
+    
+    def _execute_generate_strategy(self, task, shared_memory, step):
+        """Generate campaign strategy using all available context."""
+        brand_context = shared_memory.read("brand_context", {})
+        competitor_insights = shared_memory.read("competitor_insights", {})
+        step.input_summary = f"Generating strategy with brand context and {'competitor' if competitor_insights else 'no competitor'} insights"
+        
+        if not brand_context:
+            step.complete(success=False, error="No brand context available")
+            return {"success": False, "error": "No brand context in shared memory"}
+        
+        # Enrich brand profile with competitor data if available
+        enriched_profile = dict(brand_context)
+        if competitor_insights:
+            analysis = competitor_insights.get("analysis", {})
+            enriched_profile["competitive_landscape"] = {
+                "position": analysis.get("position", "unknown"),
+                "opportunities": analysis.get("opportunities", []),
+                "threats": analysis.get("threats", [])
+            }
+        
+        objectives = ["brand_awareness", "engagement", "content_quality"]
+        budget = 1000
+        duration_days = 30
+        
+        strategy = self.generate_campaign_strategy(
+            enriched_profile, objectives, budget, duration_days
+        )
+        
+        # Write to shared memory
+        shared_memory.write(self.name, "campaign_context", {
+            "strategy": strategy,
+            "informed_by_competitors": bool(competitor_insights)
+        }, merge=True)
+        
+        # Notify brand analyzer to generate content aligned with strategy
+        if strategy.get("content_calendar"):
+            shared_memory.send_message(
+                self.name, "brand_analyzer",
+                "Campaign strategy generated with content calendar. Align content generation with this calendar.",
+                {"campaign_theme": strategy.get("campaign_theme"), "calendar_days": len(strategy.get("content_calendar", []))}
+            )
+        
+        step.complete(
+            success=True,
+            output_summary=f"Strategy generated: {strategy.get('campaign_name', 'Untitled')} "
+                          f"with {len(strategy.get('content_calendar', []))} calendar entries"
+        )
+        
+        return {"success": True, "data": strategy}
+    
+    # ─── Original Methods (unchanged) ─────────────────────────────
     
     def recommend_ad_platforms(self, brand_profile, campaign_objectives, budget, target_metrics):
         """
@@ -110,8 +258,8 @@ Return ONLY valid JSON, no markdown.
 """
         
         try:
-            response = self.model.generate_content(prompt)
-            return self._clean_json_response(response.text)
+            result = self._generate_content(prompt)
+            return self._parse_json_response(result)
         except Exception as e:
             print(f"Error in ad platform recommendation: {e}")
             return {
@@ -185,8 +333,8 @@ Return ONLY valid JSON, no markdown.
 """
         
         try:
-            response = self.model.generate_content(prompt)
-            return self._clean_json_response(response.text)
+            result = self._generate_content(prompt)
+            return self._parse_json_response(result)
         except Exception as e:
             print(f"Error analyzing campaign: {e}")
             return {"error": str(e)}
@@ -261,8 +409,8 @@ Return ONLY valid JSON, no markdown.
 """
         
         try:
-            response = self.model.generate_content(prompt)
-            return self._clean_json_response(response.text)
+            result = self._generate_content(prompt)
+            return self._parse_json_response(result)
         except Exception as e:
             print(f"Error generating campaign strategy: {e}")
             return {"error": str(e)}

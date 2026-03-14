@@ -9,12 +9,14 @@ import json
 import os
 from datetime import datetime
 
-from models.database import get_db, init_db, Brand, Post, Analytics, Strategy, ContentQueue, Campaign, InstagramPost
+from models.database import get_db, init_db, Brand, Post, Analytics, Strategy, ContentQueue, Campaign, InstagramPost, AgentLog
 from agents.campaign_agent import CampaignAgent
 from scrapers.instagram_scraper import InstagramScraper
 from agents.brand_analyzer import BrandAnalyzer
 from agents.competitor_analyzer import CompetitorAnalyzer
 from generators.image_generator import ImageGenerator
+from agents.orchestrator import OrchestratorAgent
+from agents.shared_memory import SharedMemory
 
 app = FastAPI(title="AI Social Media Agency API")
 
@@ -197,7 +199,9 @@ def sync_brand(brand_id: int, background_tasks: BackgroundTasks, db: Session = D
 @app.post("/content/generate")
 def generate_content(request: ContentGenerate, db: Session = Depends(get_db)):
     """
-    Generate content ideas for a brand
+    Generate content ideas for a brand.
+    Uses multi-agent enrichment: competitor insights are automatically
+    injected when available, so content ideas address competitive gaps.
     """
     brand = db.query(Brand).filter(Brand.id == request.brand_id).first()
     if not brand:
@@ -206,10 +210,32 @@ def generate_content(request: ContentGenerate, db: Session = Depends(get_db)):
     if not brand.brand_profile:
         raise HTTPException(status_code=400, detail="Brand profile not analyzed yet. Please sync brand first.")
     
-    # Generate content ideas
+    # Multi-agent enrichment: check for competitor insights from previous analyses
+    enriched_profile = dict(brand.brand_profile)
+    collaboration_info = {"enriched": False, "agents_involved": ["brand_analyzer"]}
+    
+    # Look for competitor insights from recent orchestrator runs or competitor analyses
+    recent_competitor_log = db.query(AgentLog).filter(
+        AgentLog.agent_name == "competitor_analyzer",
+        AgentLog.brand_id == request.brand_id,
+        AgentLog.success == True
+    ).order_by(AgentLog.timestamp.desc()).first()
+    
+    if recent_competitor_log and recent_competitor_log.output_summary:
+        try:
+            competitor_data = json.loads(recent_competitor_log.output_summary) if isinstance(recent_competitor_log.output_summary, str) else {}
+            if competitor_data.get("competitive_gaps"):
+                enriched_profile["competitive_gaps_to_address"] = competitor_data["competitive_gaps"]
+                collaboration_info["enriched"] = True
+                collaboration_info["agents_involved"].append("competitor_analyzer")
+                collaboration_info["enrichment_details"] = f"Content ideas informed by {len(competitor_data['competitive_gaps'])} competitive gaps"
+        except (json.JSONDecodeError, TypeError):
+            pass
+    
+    # Generate content ideas with potentially enriched profile
     analyzer = BrandAnalyzer()
     content_ideas = analyzer.generate_content_ideas(
-        brand.brand_profile,
+        enriched_profile,
         platform=request.platform,
         count=request.count
     )
@@ -217,7 +243,8 @@ def generate_content(request: ContentGenerate, db: Session = Depends(get_db)):
     return {
         "brand_id": request.brand_id,
         "platform": request.platform,
-        "content_ideas": content_ideas
+        "content_ideas": content_ideas,
+        "agent_collaboration": collaboration_info
     }
 
 @app.post("/content/caption")
@@ -311,6 +338,16 @@ def get_brand_posts(brand_id: int, status: Optional[str] = None, db: Session = D
     posts = query.order_by(Post.created_at.desc()).all()
     return posts
 
+@app.get("/posts/{post_id}")
+def get_post(post_id: int, db: Session = Depends(get_db)):
+    """
+    Get a single post by ID
+    """
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return post
+
 @app.get("/analytics/brand/{brand_id}")
 def get_brand_analytics(brand_id: int, db: Session = Depends(get_db)):
     """
@@ -374,6 +411,30 @@ def generate_strategy(brand_id: int, db: Session = Depends(get_db)):
     analyzer = BrandAnalyzer()
     performance_analysis = analyzer.analyze_performance(analytics_data)
     
+    # Multi-agent enrichment: include competitor context if available
+    collaboration_info = {"enriched": False, "agents_involved": ["brand_analyzer"]}
+    
+    recent_competitor_log = db.query(AgentLog).filter(
+        AgentLog.agent_name == "competitor_analyzer",
+        AgentLog.brand_id == brand_id,
+        AgentLog.success == True
+    ).order_by(AgentLog.timestamp.desc()).first()
+    
+    if recent_competitor_log and recent_competitor_log.output_summary:
+        try:
+            competitor_data = json.loads(recent_competitor_log.output_summary) if isinstance(recent_competitor_log.output_summary, str) else {}
+            if competitor_data:
+                performance_analysis["competitive_context"] = {
+                    "position": competitor_data.get("position", "unknown"),
+                    "opportunities": competitor_data.get("opportunities", []),
+                    "threats": competitor_data.get("threats", []),
+                    "source": "competitor_analyzer"
+                }
+                collaboration_info["enriched"] = True
+                collaboration_info["agents_involved"].append("competitor_analyzer")
+        except (json.JSONDecodeError, TypeError):
+            pass
+    
     # Save strategy
     strategy = Strategy(
         brand_id=brand_id,
@@ -388,7 +449,8 @@ def generate_strategy(brand_id: int, db: Session = Depends(get_db)):
     
     return {
         "brand_id": brand_id,
-        "strategy": performance_analysis
+        "strategy": performance_analysis,
+        "agent_collaboration": collaboration_info
     }
 
 @app.post("/images/generate")
@@ -486,6 +548,36 @@ def analyze_competitors(request: CompetitorAnalysisRequest, db: Session = Depend
     analyzer = CompetitorAnalyzer()
     comparison = analyzer.compare_with_competitors(brand_data, request.competitor_handles)
     
+    # Persist to AgentLog for multi-agent enrichment
+    import uuid
+    try:
+        # Extract key insights for other agents to use
+        output_summary = {}
+        if isinstance(comparison, dict):
+            analysis = comparison.get("analysis", comparison)
+            output_summary = {
+                "competitive_gaps": analysis.get("competitive_gaps", analysis.get("gaps", [])),
+                "opportunities": analysis.get("opportunities", []),
+                "threats": analysis.get("threats", []),
+                "position": analysis.get("brand_position", analysis.get("position", "unknown")),
+                "strengths": analysis.get("strengths", [])
+            }
+        
+        log_entry = AgentLog(
+            session_id=str(uuid.uuid4()),
+            agent_name="competitor_analyzer",
+            task="Competitive analysis",
+            input_summary=f"Analyzed {len(request.competitor_handles)} competitors",
+            output_summary=json.dumps(output_summary),
+            success=True,
+            duration_ms=0,
+            brand_id=request.brand_id
+        )
+        db.add(log_entry)
+        db.commit()
+    except Exception as e:
+        print(f"Warning: Failed to persist competitor analysis to AgentLog: {e}")
+        
     return comparison
 
 @app.post("/competitors/trending")
@@ -611,18 +703,45 @@ def get_brand_campaigns(brand_id: int, db: Session = Depends(get_db)):
 
 @app.post("/campaigns/ad-recommendations")
 def get_ad_recommendations(request: AdPlatformRequest, db: Session = Depends(get_db)):
-    """Get AI-powered ad platform recommendations"""
+    """
+    Get AI-powered ad platform recommendations.
+    Uses multi-agent enrichment: competitor analysis data is automatically
+    factored into platform suggestions when available.
+    """
     brand = db.query(Brand).filter(Brand.id == request.brand_id).first()
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
     
+    # Multi-agent enrichment: enrich objectives with competitor insights
+    enriched_objectives = list(request.objectives)
+    collaboration_info = {"enriched": False, "agents_involved": ["campaign_agent"]}
+    
+    recent_competitor_log = db.query(AgentLog).filter(
+        AgentLog.agent_name == "competitor_analyzer",
+        AgentLog.brand_id == request.brand_id,
+        AgentLog.success == True
+    ).order_by(AgentLog.timestamp.desc()).first()
+    
+    if recent_competitor_log and recent_competitor_log.output_summary:
+        try:
+            competitor_data = json.loads(recent_competitor_log.output_summary) if isinstance(recent_competitor_log.output_summary, str) else {}
+            if competitor_data.get("competitive_gaps"):
+                enriched_objectives.append("competitive_differentiation")
+                collaboration_info["enriched"] = True
+                collaboration_info["agents_involved"].append("competitor_analyzer")
+                collaboration_info["enrichment_details"] = "Ad recommendations factor in competitive gaps"
+        except (json.JSONDecodeError, TypeError):
+            pass
+    
     campaign_agent = CampaignAgent()
     recommendations = campaign_agent.recommend_ad_platforms(
         brand.brand_profile,
-        request.objectives,
+        enriched_objectives,
         request.budget,
         request.target_metrics
     )
+    
+    recommendations["agent_collaboration"] = collaboration_info
     
     return recommendations
 
@@ -1007,6 +1126,160 @@ def update_campaign_metrics_from_posts(campaign_id: int, db: Session):
         campaign.total_conversions = len(posts)  # Number of posts
         
         db.commit()
+
+
+# ==================== Multi-Agent Orchestrator Endpoints ====================
+
+class OrchestratorPipelineRequest(BaseModel):
+    pipeline: str
+    brand_id: Optional[int] = None
+    instagram_handle: Optional[str] = None
+    competitor_handles: Optional[List[str]] = None
+
+class OrchestratorDynamicRequest(BaseModel):
+    task: str
+    brand_id: Optional[int] = None
+    instagram_handle: Optional[str] = None
+    competitor_handles: Optional[List[str]] = None
+
+
+@app.get("/orchestrator/pipelines")
+def list_pipelines():
+    """List all available multi-agent pipelines"""
+    orchestrator = OrchestratorAgent()
+    return orchestrator.list_pipelines()
+
+
+@app.post("/orchestrator/execute")
+def execute_pipeline(request: OrchestratorPipelineRequest, db: Session = Depends(get_db)):
+    """
+    Execute a predefined multi-agent pipeline.
+    
+    Available pipelines:
+    - brand_onboarding: Scrape + analyze brand
+    - content_creation: Generate ideas + captions + images
+    - campaign_planning: Analyze brand + competitors + generate strategy
+    - competitive_strategy: Competitor analysis + ad recommendations + strategy + content
+    - full_workflow: Complete end-to-end pipeline
+    """
+    # Build context from request
+    context = {}
+    
+    if request.instagram_handle:
+        context["instagram_handle"] = request.instagram_handle
+    
+    if request.competitor_handles:
+        context["competitor_handles"] = request.competitor_handles
+    
+    # If brand_id provided, load brand context from DB
+    if request.brand_id:
+        brand = db.query(Brand).filter(Brand.id == request.brand_id).first()
+        if not brand:
+            raise HTTPException(status_code=404, detail="Brand not found")
+        
+        if brand.brand_profile:
+            context["brand_profile"] = brand.brand_profile
+        if brand.instagram_handle:
+            context["instagram_handle"] = brand.instagram_handle
+    
+    # Execute pipeline
+    orchestrator = OrchestratorAgent()
+    result = orchestrator.execute_pipeline(request.pipeline, context)
+    
+    # Persist execution trace to database
+    if result.get("execution_trace"):
+        for step in result["execution_trace"]:
+            log_entry = AgentLog(
+                session_id=result.get("session_id", ""),
+                agent_name=step.get("agent_name", ""),
+                task=step.get("task", ""),
+                input_summary=step.get("input_summary", ""),
+                output_summary=step.get("output_summary", ""),
+                success=step.get("success", False),
+                error=step.get("error"),
+                duration_ms=step.get("duration_ms", 0),
+                brand_id=request.brand_id
+            )
+            db.add(log_entry)
+        db.commit()
+    
+    return result
+
+
+@app.post("/orchestrator/dynamic")
+def execute_dynamic_task(request: OrchestratorDynamicRequest, db: Session = Depends(get_db)):
+    """
+    Execute a dynamically planned multi-agent task.
+    The orchestrator uses AI to decide which agents to invoke.
+    """
+    context = {}
+    
+    if request.instagram_handle:
+        context["instagram_handle"] = request.instagram_handle
+    
+    if request.competitor_handles:
+        context["competitor_handles"] = request.competitor_handles
+    
+    if request.brand_id:
+        brand = db.query(Brand).filter(Brand.id == request.brand_id).first()
+        if not brand:
+            raise HTTPException(status_code=404, detail="Brand not found")
+        
+        if brand.brand_profile:
+            context["brand_profile"] = brand.brand_profile
+        if brand.instagram_handle:
+            context["instagram_handle"] = brand.instagram_handle
+    
+    orchestrator = OrchestratorAgent()
+    result = orchestrator.execute_dynamic(request.task, context)
+    
+    # Persist execution trace
+    if result.get("execution_trace"):
+        for step in result["execution_trace"]:
+            log_entry = AgentLog(
+                session_id=result.get("session_id", ""),
+                agent_name=step.get("agent_name", ""),
+                task=step.get("task", ""),
+                input_summary=step.get("input_summary", ""),
+                output_summary=step.get("output_summary", ""),
+                success=step.get("success", False),
+                error=step.get("error"),
+                duration_ms=step.get("duration_ms", 0),
+                brand_id=request.brand_id
+            )
+            db.add(log_entry)
+        db.commit()
+    
+    return result
+
+
+@app.get("/orchestrator/trace/{session_id}")
+def get_execution_trace(session_id: str, db: Session = Depends(get_db)):
+    """Get the execution trace for a specific orchestrator session"""
+    logs = db.query(AgentLog).filter(
+        AgentLog.session_id == session_id
+    ).order_by(AgentLog.timestamp.asc()).all()
+    
+    if not logs:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return {
+        "session_id": session_id,
+        "total_steps": len(logs),
+        "steps": [
+            {
+                "agent_name": log.agent_name,
+                "task": log.task,
+                "input_summary": log.input_summary,
+                "output_summary": log.output_summary,
+                "success": log.success,
+                "error": log.error,
+                "duration_ms": log.duration_ms,
+                "timestamp": log.timestamp.isoformat() if log.timestamp else None
+            }
+            for log in logs
+        ]
+    }
 
 
 if __name__ == "__main__":

@@ -146,6 +146,25 @@ class InstagramPost(Base):
     campaign = relationship("Campaign", back_populates="instagram_posts")
 
 
+class AgentLog(Base):
+    """Persists multi-agent execution traces for observability."""
+    __tablename__ = "agent_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, index=True, nullable=False)  # Groups steps from one orchestrator run
+    agent_name = Column(String, nullable=False)
+    task = Column(Text)
+    input_summary = Column(Text)
+    output_summary = Column(Text)
+    success = Column(Boolean, default=False)
+    error = Column(Text, nullable=True)
+    duration_ms = Column(Integer, default=0)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    brand_id = Column(Integer, ForeignKey("brands.id"), nullable=True)
+    
+    brand = relationship("Brand")
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 

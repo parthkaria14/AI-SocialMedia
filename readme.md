@@ -10,6 +10,7 @@ An AI-powered social media management platform that helps brands create, schedul
 ## ✨ Features
 
 ### 🤖 AI Agents
+- **Orchestrator** - Manages workflows and coordinates context between specialized AI agents using shared memory
 - **Brand Analyzer** - Analyzes Instagram profiles to understand brand voice, target audience, and content themes
 - **Content Generator** - Creates AI-powered content ideas, captions, and hashtag suggestions
 - **Campaign Agent** - Generates marketing strategies, analyzes campaigns, and recommends ad platforms
@@ -55,9 +56,10 @@ An AI-powered social media management platform that helps brands create, schedul
 - Social media auto-posting via Instagram API
 
 ### 🔗 Agent Interconnectivity
+- **Multi-Agent Orchestrator** - Centralized workflow management
+- **Shared Memory** - Context naturally flows between all AI agents
 - Create content directly from ad recommendations
 - Generate posts from campaign strategy calendar
-- Context flows between all AI agents
 
 ## 🛠️ Tech Stack
 
@@ -131,9 +133,12 @@ Frontend runs at: `http://localhost:3000`
 project/
 ├── backend/
 │   ├── agents/
+│   │   ├── base_agent.py            # Base agent class
 │   │   ├── brand_analyzer.py        # Brand analysis & content generation
 │   │   ├── campaign_agent.py        # Campaign strategies & ad recommendations
-│   │   └── competitor_analyzer.py   # Competitor SWOT & trending analysis
+│   │   ├── competitor_analyzer.py   # Competitor SWOT & trending analysis
+│   │   ├── orchestrator.py          # Multi-agent orchestrator workflows
+│   │   └── shared_memory.py         # Shared memory for context passing
 │   ├── generators/
 │   │   ├── image_generator.py       # AI image generation with text overlays
 │   │   └── pollinations_v2.py       # Pollinations.ai API client

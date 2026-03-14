@@ -10,54 +10,131 @@ import json
 from dotenv import load_dotenv
 from scrapers.instagram_scraper import InstagramScraper
 
+from agents.base_agent import BaseAgent
+
 load_dotenv()
 
-class CompetitorAnalyzer:
+class CompetitorAnalyzer(BaseAgent):
+    
+    name = "competitor_analyzer"
+    description = "Analyzes competitors via Instagram scraping, performs SWOT analysis, identifies trending content, and provides strategic recommendations."
+    capabilities = [
+        "analyze_competitor",
+        "compare_with_competitors",
+        "identify_trending_content",
+        "swot_analysis"
+    ]
+    
     def __init__(self):
-        # Primary: Gemini
-        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
-        
-        # Backup: Groq
-        self.groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
-        self.groq_model = "openai/gpt-oss-120b"
-        
+        super().__init__()
         self.scraper = InstagramScraper()
     
-    def _generate_content(self, prompt: str) -> str:
-        """
-        Generate content using Gemini with Groq fallback.
-        Returns the raw text response.
-        """
-        # Try Gemini first
-        try:
-            response = self.model.generate_content(prompt)
-            return response.text.strip()
-        except Exception as gemini_error:
-            print(f"Gemini failed: {gemini_error}. Falling back to Groq...")
-        
-        # Fallback to Groq
-        try:
-            response = self.groq_client.chat.completions.create(
-                model=self.groq_model,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=4096
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as groq_error:
-            print(f"Groq also failed: {groq_error}")
-            raise Exception(f"Both Gemini and Groq failed. Gemini: {gemini_error}, Groq: {groq_error}")
+    # ─── Orchestrator Interface ────────────────────────────────────
     
-    def _parse_json_response(self, result: str):
-        """Parse JSON from AI response, handling markdown code blocks."""
-        if result.startswith('```json'):
-            result = result[7:-3]
-        elif result.startswith('```'):
-            result = result[3:-3]
-        return json.loads(result)
+    def execute(self, task: str, shared_memory) -> dict:
+        """
+        Called by the orchestrator. Routes to the appropriate method
+        based on the task, reads context from shared memory.
+        """
+        step = shared_memory.start_step(self.name, task)
+        
+        try:
+            task_lower = task.lower()
+            
+            if "trend" in task_lower:
+                return self._execute_trending(task, shared_memory, step)
+            elif "compar" in task_lower or "swot" in task_lower or "analyz" in task_lower:
+                return self._execute_compare(task, shared_memory, step)
+            else:
+                return self._execute_compare(task, shared_memory, step)
+        except Exception as e:
+            step.complete(success=False, error=str(e))
+            return {"success": False, "error": str(e)}
+    
+    def _execute_compare(self, task, shared_memory, step):
+        """Compare brand with competitors using shared context."""
+        scraped_data = shared_memory.read("scraped_data", {})
+        step.input_summary = f"Comparing brand with competitors using scraped data"
+        
+        if not scraped_data:
+            step.complete(success=False, error="No scraped data available")
+            return {"success": False, "error": "No scraped data in shared memory"}
+        
+        # Get competitor handles from task context or use defaults
+        competitor_handles = shared_memory.read("competitor_handles", [])
+        
+        if not competitor_handles:
+            step.complete(success=False, error="No competitor handles specified")
+            return {"success": False, "error": "No competitor_handles in shared memory"}
+        
+        comparison = self.compare_with_competitors(scraped_data, competitor_handles)
+        
+        # Write insights to shared memory
+        shared_memory.write(self.name, "competitor_insights", comparison)
+        
+        # Send strategic insights to campaign agent
+        if comparison.get("success"):
+            analysis = comparison.get("analysis", {})
+            shared_memory.send_message(
+                self.name, "campaign_agent",
+                "Competitor analysis complete. SWOT analysis and competitive gaps identified.",
+                {
+                    "position": analysis.get("position", "unknown"),
+                    "opportunities": analysis.get("opportunities", []),
+                    "competitive_gaps": analysis.get("competitive_gaps", [])
+                }
+            )
+            
+            # Also inform brand analyzer about content strategies
+            shared_memory.send_message(
+                self.name, "brand_analyzer",
+                "Competitor content strategies analyzed. Winning strategies identified for content differentiation.",
+                {
+                    "winning_strategies": analysis.get("winning_strategies", []),
+                    "strengths": analysis.get("strengths", [])
+                }
+            )
+        
+        step.complete(
+            success=comparison.get("success", False),
+            output_summary=f"Compared with {len(competitor_handles)} competitors. "
+                          f"Position: {comparison.get('analysis', {}).get('position', 'unknown')}"
+        )
+        
+        return {"success": True, "data": comparison}
+    
+    def _execute_trending(self, task, shared_memory, step):
+        """Identify trending content from competitors."""
+        competitor_handles = shared_memory.read("competitor_handles", [])
+        step.input_summary = f"Identifying trending content from {len(competitor_handles)} competitors"
+        
+        if not competitor_handles:
+            step.complete(success=False, error="No competitor handles specified")
+            return {"success": False, "error": "No competitor_handles in shared memory"}
+        
+        trends = self.identify_trending_content(competitor_handles)
+        
+        # Write trends to shared memory
+        shared_memory.write(self.name, "competitor_insights", {
+            "trending": trends
+        }, merge=True)
+        
+        # Notify brand analyzer about trends for content inspiration
+        if trends.get("success"):
+            shared_memory.send_message(
+                self.name, "brand_analyzer",
+                "Trending content identified from competitors. Use these trends to inform content generation.",
+                {"trends": trends.get("trends", {})}
+            )
+        
+        step.complete(
+            success=trends.get("success", False),
+            output_summary=f"Identified trends: {', '.join(trends.get('trends', {}).get('trending_topics', [])[:3])}"
+        )
+        
+        return {"success": True, "data": trends}
+    
+    # ─── Original Methods (unchanged) ─────────────────────────────
     
     def analyze_competitor(self, competitor_handle, max_posts=20):
         """
