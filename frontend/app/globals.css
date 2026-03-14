@@ -45,6 +45,40 @@
   --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* ============================================
+   LIGHT THEME OVERRIDES
+   ============================================ */
+
+[data-theme="light"] {
+  --bg-primary: #f5f5f9;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e8e8f0;
+  --bg-card: rgba(255, 255, 255, 0.8);
+  --bg-card-hover: rgba(255, 255, 255, 0.95);
+
+  --text-primary: #1a1a2e;
+  --text-secondary: #555577;
+  --text-muted: #8888a0;
+
+  --accent-primary: #6c47ff;
+  --accent-secondary: #4a7aff;
+  --accent-glow: rgba(108, 71, 255, 0.25);
+
+  --success: #16a34a;
+  --warning: #d97706;
+  --error: #dc2626;
+  --info: #2563eb;
+
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-bg-strong: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border-hover: rgba(0, 0, 0, 0.15);
+  --glass-blur: 24px;
+
+  --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.08);
+  --shadow-glow: 0 0 40px var(--accent-glow);
+}
+
 @theme inline {
   --color-background: var(--bg-primary);
   --color-foreground: var(--text-primary);
@@ -70,6 +104,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Subtle Gradient Background */
@@ -87,6 +122,12 @@ body::before {
   z-index: -1;
 }
 
+[data-theme="light"] body::before {
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -20%, rgba(108, 71, 255, 0.06), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(74, 122, 255, 0.04), transparent 50%);
+}
+
 /* ============================================
    TYPOGRAPHY - REFINED
    ============================================ */
@@ -102,6 +143,50 @@ h2 { font-size: 1.75rem; }
 h3 { font-size: 1.25rem; }
 
 p { color: var(--text-secondary); }
+
+/* Light mode typography — heavier weights for readability on light bg */
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] h5,
+[data-theme="light"] h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+[data-theme="light"] h1 { font-weight: 700; }
+
+[data-theme="light"] p {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] body {
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+}
+
+[data-theme="light"] .font-bold {
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .font-medium {
+  font-weight: 600 !important;
+}
+
+[data-theme="light"] .font-semibold {
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .text-sm {
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+[data-theme="light"] .text-xs {
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+}
 
 .gradient-text {
   background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 50%, #a78bfa 100%);
@@ -561,12 +646,20 @@ textarea::placeholder {
   -webkit-backdrop-filter: blur(12px);
 }
 
+[data-theme="light"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.4);
+}
+
 .modal-content {
   background: var(--bg-secondary);
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
   animation: fadeInScale 0.3s var(--ease-smooth) forwards;
+}
+
+[data-theme="light"] .modal-content {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.15);
 }
 
 /* ============================================
@@ -662,3 +755,96 @@ textarea::placeholder {
 .border-yellow-200 { border-color: rgba(251, 191, 36, 0.2) !important; }
 .border-red-200 { border-color: rgba(248, 113, 113, 0.2) !important; }
 .border-purple-200 { border-color: rgba(124, 92, 255, 0.2) !important; }
+
+/* ============================================
+   LIGHT MODE - INLINE CLASS OVERRIDES
+   Remap hardcoded dark-mode Tailwind classes
+   ============================================ */
+
+[data-theme="light"] .text-white {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .hover\:text-white:hover {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .text-gray-300 {
+  color: #444466 !important;
+}
+
+[data-theme="light"] .text-gray-400 {
+  color: #666688 !important;
+}
+
+[data-theme="light"] .text-gray-500 {
+  color: #8888a0 !important;
+}
+
+[data-theme="light"] .text-gray-600 {
+  color: #999 !important;
+}
+
+[data-theme="light"] .bg-white\/5,
+[data-theme="light"] .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="light"] .hover\:bg-white\/5:hover,
+[data-theme="light"] .hover\:bg-white\/10:hover {
+  background-color: rgba(0, 0, 0, 0.07) !important;
+}
+
+[data-theme="light"] .border-white\/5,
+[data-theme="light"] .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .hover\:border-white\/15:hover {
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme="light"] .bg-gray-900 {
+  background-color: #f0f0f5 !important;
+}
+
+[data-theme="light"] .bg-\[var\(--bg-tertiary\)\] {
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* Light mode input styling */
+[data-theme="light"] input,
+[data-theme="light"] textarea,
+[data-theme="light"] select {
+  background: var(--bg-tertiary) !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] input:focus,
+[data-theme="light"] textarea:focus,
+[data-theme="light"] select:focus {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 3px rgba(108, 71, 255, 0.12) !important;
+}
+
+/* Light mode scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #c0c0d0;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #a0a0b0;
+}
+
+/* Keep gradient buttons readable in both modes */
+[data-theme="light"] .bg-gradient-to-r.from-purple-500.to-pink-500,
+[data-theme="light"] .bg-gradient-to-r.from-violet-500.to-purple-600,
+[data-theme="light"] .bg-violet-600 {
+  color: white !important;
+}
+
+[data-theme="light"] .bg-gradient-to-r.from-purple-500.to-pink-500 .text-white,
+[data-theme="light"] .bg-violet-600 .text-white {
+  color: white !important;
+}

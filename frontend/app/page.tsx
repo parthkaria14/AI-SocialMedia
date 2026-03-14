@@ -6,6 +6,7 @@ import { Plus, Sparkles, Activity, Trash2, ArrowRight, Layers, Instagram } from 
 import Link from 'next/link';
 import CreateBrandModal from '@/components/CreateBrandModal';
 import { RingLoader } from '@/components/Loaders';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function Dashboard() {
   const [brands, setBrands] = useState<any[]>([]);
@@ -78,13 +79,16 @@ export default function Dashboard() {
                 <p className="text-xs text-[var(--text-muted)]">Brand Management</p>
               </div>
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              New Brand
-            </button>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                New Brand
+              </button>
+            </div>
           </div>
         </div>
       </header>

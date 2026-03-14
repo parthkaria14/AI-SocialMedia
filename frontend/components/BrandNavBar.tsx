@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowLeft, LayoutGrid, FileText, Rocket, BarChart3, DollarSign, Users, Sparkles } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
 
 interface BrandNavBarProps {
     brandId: number;
@@ -51,6 +52,7 @@ export default function BrandNavBar({ brandId, brandName }: BrandNavBarProps) {
                             </div>
                         )}
                     </div>
+                    <ThemeToggle />
                 </div>
 
                 {/* Tab navigation */}
