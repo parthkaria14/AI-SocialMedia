@@ -12,6 +12,7 @@ from datetime import datetime
 from models.database import get_db, init_db, Brand, Post, Analytics, Strategy, ContentQueue, Campaign, InstagramPost, AgentLog
 from agents.campaign_agent import CampaignAgent
 from scrapers.instagram_scraper import InstagramScraper
+from scrapers.apify_scraper import ApifyScraper
 from agents.brand_analyzer import BrandAnalyzer
 from agents.competitor_analyzer import CompetitorAnalyzer
 from generators.image_generator import ImageGenerator
@@ -537,9 +538,8 @@ def analyze_competitors(request: CompetitorAnalysisRequest, db: Session = Depend
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
     
-    # Get brand's scraped data
-    scraper = InstagramScraper()
-    brand_data = scraper.get_complete_brand_data(brand.instagram_handle, max_posts=30)
+    # Get brand's scraped data — Apify primary, instaloader fallback
+    brand_data = get_brand_data_with_fallback(brand.instagram_handle, max_posts=30)
     
     if not brand_data:
         raise HTTPException(status_code=400, detail="Failed to fetch brand data")
@@ -1010,16 +1010,48 @@ def unlink_posts_from_campaign(campaign_id: int, post_ids: List[int], db: Sessio
     }
 
 
+# ── Scraper helper: Apify primary, instaloader fallback ──────────────────────
+def get_brand_data_with_fallback(instagram_handle: str, max_posts: int = 30) -> dict | None:
+    """
+    Try Apify first. If it raises or returns None, fall back to InstagramScraper.
+    Returns the brand data dict or None if both fail.
+    """
+    # ── Primary: Apify ────────────────────────────────────────────────────────
+    try:
+        print(f"[scraper] Trying Apify for @{instagram_handle}...")
+        apify = ApifyScraper()
+        data = apify.get_complete_brand_data(instagram_handle, max_posts=max_posts)
+        if data:
+            print(f"[scraper] ✅ Apify succeeded for @{instagram_handle}")
+            return data
+        print(f"[scraper] ⚠️  Apify returned None for @{instagram_handle}, switching to fallback")
+    except Exception as e:
+        print(f"[scraper] ⚠️  Apify failed for @{instagram_handle}: {e}")
+
+    # ── Fallback: instaloader ─────────────────────────────────────────────────
+    try:
+        print(f"[scraper] Trying instaloader fallback for @{instagram_handle}...")
+        scraper = InstagramScraper()
+        data = scraper.get_complete_brand_data(instagram_handle, max_posts=max_posts)
+        if data:
+            print(f"[scraper] ✅ instaloader succeeded for @{instagram_handle}")
+            return data
+    except Exception as e:
+        print(f"[scraper] ❌ instaloader also failed for @{instagram_handle}: {e}")
+
+    return None
+
+
 # Background Tasks
 def scrape_and_analyze_brand(brand_id: int, instagram_handle: str):
     """
-    Background task to scrape and analyze brand
+    Background task to scrape and analyze brand.
+    Uses Apify as primary scraper; falls back to instaloader on failure.
     """
-    scraper = InstagramScraper()
     analyzer = BrandAnalyzer()
     
     # Scrape data
-    brand_data = scraper.get_complete_brand_data(instagram_handle, max_posts=30)
+    brand_data = get_brand_data_with_fallback(instagram_handle, max_posts=50)
     
     if not brand_data:
         print(f"Failed to scrape brand: {instagram_handle}")
