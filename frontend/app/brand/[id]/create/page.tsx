@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { getBrand, generateCaption, generateMultiplatformCaptions, generateSingleImage, createPost } from '@/lib/api';
-import { ArrowLeft, Wand2, Image as ImageIcon, Calendar, Copy, Check, Sparkles, Instagram, Twitter, Linkedin, Zap } from 'lucide-react';
+import { getBrand, generateCaption, generateMultiplatformCaptions, generateSingleImage, createPost, compareClip } from '@/lib/api';
+import { ArrowLeft, Wand2, Image as ImageIcon, Calendar, Copy, Check, Sparkles, Instagram, Twitter, Linkedin, Zap, FlaskConical, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import Link from 'next/link';
 import { AILoader, InlineLoader } from '@/components/Loaders';
 
@@ -22,6 +22,12 @@ export default function CreatePostPage() {
     const [showMultiPlatform, setShowMultiPlatform] = useState(false);
     const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null);
     const [copiedCaption, setCopiedCaption] = useState(false);
+
+    // Dual image comparison state
+    const [generatingDual, setGeneratingDual] = useState(false);
+    const [dualResult, setDualResult] = useState<any>(null);
+    const [selectedImage, setSelectedImage] = useState<'baseline' | 'conditioned' | null>(null);
+    const [showPromptDetails, setShowPromptDetails] = useState(false);
 
     const [formData, setFormData] = useState({
         platform: 'instagram',
@@ -160,32 +166,76 @@ export default function CreatePostPage() {
         setShowMultiPlatform(false);
     };
 
-    const handleGenerateImage = async () => {
-        if (!formData.imagePrompt) {
-            alert('Please enter an image description');
+    const handleGenerateDual = async () => {
+        if (!formData.imagePrompt && !formData.imageTitle) {
+            alert('Please enter an image title or description first');
             return;
         }
 
-        setGeneratingImage(true);
+        setGeneratingDual(true);
+        setDualResult(null);
+        setSelectedImage(null);
+        
         try {
-            const result = await generateSingleImage(
-                formData.imagePrompt,
-                formData.imageTitle,
-                1080,
-                1080
+            const result = await compareClip(
+                brandId,
+                formData.imageTitle || formData.imagePrompt,
+                formData.imagePrompt
             );
-            if (result.success) {
-                setFormData({
-                    ...formData,
-                    generatedImageUrl: result.url,
-                });
-            } else {
-                alert('Failed to generate image: ' + result.error);
+            setDualResult(result);
+            
+            // Auto-select the better image
+            if (result.conditioned?.url) {
+                setSelectedImage('conditioned');
+                setFormData(prev => ({
+                    ...prev,
+                    generatedImageUrl:
+                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${result.conditioned.url}`,
+                }));
+            } else if (result.baseline?.url) {
+                setSelectedImage('baseline');
+                setFormData(prev => ({
+                    ...prev,
+                    generatedImageUrl:
+                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${result.baseline.url}`,
+                }));
             }
-        } catch (error) {
-            alert('Failed to generate image');
+        } catch (error: any) {
+            console.error(error);
+            alert(error?.response?.data?.detail || 'Image generation failed. Sync the brand first.');
         } finally {
-            setGeneratingImage(false);
+            setGeneratingDual(false);
+        }
+    };
+
+    const handleDownloadImage = async (e: React.MouseEvent, url: string, type: string) => {
+        e.stopPropagation();
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${url}`);
+            const blob = await response.blob();
+            const objectUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = objectUrl;
+            a.download = `${brand?.name || 'brand'}_${type}_image.png`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(objectUrl);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Error downloading image:', error);
+            alert('Failed to download image.');
+        }
+    };
+
+    const handleSelectImage = (side: 'baseline' | 'conditioned') => {
+        setSelectedImage(side);
+        const imgData = side === 'baseline' ? dualResult?.baseline : dualResult?.conditioned;
+        if (imgData?.url) {
+            setFormData(prev => ({
+                ...prev,
+                generatedImageUrl:
+                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${imgData.url}`,
+            }));
         }
     };
 
@@ -325,18 +375,21 @@ export default function CreatePostPage() {
                             </div>
                         </div>
 
-                        {/* Image Generation */}
+                        {/* Image Generation — Dual CLIP Comparison */}
                         <div className="glass-card p-6 animate-fadeIn stagger-2">
-                            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                            <h3 className="font-bold text-white mb-1 flex items-center gap-2">
                                 <ImageIcon className="w-4 h-4 text-purple-400" />
                                 Generate AI Image
+                                <span className="ml-auto flex items-center gap-1 text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">
+                                    <FlaskConical className="w-3 h-3" />
+                                    CLIP Comparison
+                                </span>
                             </h3>
+                            <p className="text-xs text-gray-500 mb-4">Generates two images from the same prompt — one generic, one brand-DNA conditioned — scored with CLIP</p>
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                                        Image Title (for text overlay)
-                                    </label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">Image Title</label>
                                     <input
                                         type="text"
                                         value={formData.imageTitle}
@@ -345,47 +398,201 @@ export default function CreatePostPage() {
                                         className="w-full px-4 py-3 rounded-xl"
                                     />
                                 </div>
-
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                                        Image Description
-                                    </label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">Image Description</label>
                                     <textarea
                                         value={formData.imagePrompt}
                                         onChange={(e) => setFormData({ ...formData, imagePrompt: e.target.value })}
-                                        placeholder="Describe what you want in the image: e.g., A vibrant summer fashion collection with floral patterns, bright colors, outdoor lifestyle setting"
+                                        placeholder="Describe what you want in the image..."
                                         className="w-full px-4 py-3 rounded-xl resize-none"
-                                        rows={4}
+                                        rows={3}
                                     />
-                                    <p className="text-xs text-gray-500 mt-2">
-                                        Be specific: mention colors, style, setting, mood, and key elements
-                                    </p>
                                 </div>
 
-                                {generatingImage ? (
+                                {generatingDual ? (
                                     <div className="bg-[var(--bg-tertiary)] rounded-xl border border-[var(--glass-border)]">
                                         <AILoader
-                                            message="Creating your image"
+                                            message="Generating & scoring both images"
                                             variant="image"
                                             steps={[
-                                                'Analyzing prompt',
-                                                'Generating visuals',
-                                                'Enhancing quality',
-                                                'Finalizing'
+                                                'Extracting Brand-DNA',
+                                                'Generating baseline image',
+                                                'Generating brand-conditioned image',
+                                                'Scoring with CLIP',
                                             ]}
                                             currentStep={1}
                                         />
                                     </div>
                                 ) : (
                                     <button
-                                        onClick={handleGenerateImage}
+                                        onClick={handleGenerateDual}
                                         className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3.5 rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/25 transition-all"
                                     >
-                                        <ImageIcon className="w-5 h-5" />
-                                        Generate AI Image
+                                        <Wand2 className="w-5 h-5" />
+                                        Generate &amp; Compare (Baseline vs Brand-DNA)
                                     </button>
                                 )}
                             </div>
+
+                            {/* Dual Results */}
+                            {dualResult && (
+                                <div className="mt-5 space-y-4 animate-fadeIn">
+
+                                    {/* Delta badge */}
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        {dualResult.delta !== null && dualResult.delta !== undefined ? (
+                                            <span className={`px-3 py-1 rounded-full text-sm font-bold border ${
+                                                dualResult.delta > 0
+                                                    ? 'bg-green-500/15 text-green-400 border-green-500/30'
+                                                    : 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'
+                                            }`}>
+                                                {dualResult.delta > 0 ? '+' : ''}{(dualResult.delta * 100).toFixed(1)}% CLIP brand alignment
+                                            </span>
+                                        ) : (
+                                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-500/15 text-gray-400 border border-gray-500/30">
+                                                {dualResult.clip_enabled ? 'CLIP scored' : 'No CLIP (torch not installed) — images generated'}
+                                            </span>
+                                        )}
+                                        <span className="text-xs text-gray-500">Click an image to use it →</span>
+                                    </div>
+
+                                    {/* Side-by-side */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* Baseline */}
+                                        <div
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => handleSelectImage('baseline')}
+                                            className={`group text-left space-y-2 rounded-xl p-2 transition-all border-2 cursor-pointer ${
+                                                selectedImage === 'baseline'
+                                                    ? 'border-gray-400 bg-white/5'
+                                                    : 'border-transparent hover:border-white/20'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-gray-400 font-medium">Baseline</span>
+                                                {dualResult.baseline?.clip_score != null && (
+                                                    <ClipBadge score={dualResult.baseline.clip_score} />
+                                                )}
+                                            </div>
+                                            {dualResult.baseline?.url ? (
+                                                <div className={`relative aspect-square rounded-xl overflow-hidden border ${
+                                                    selectedImage === 'baseline' ? 'border-gray-400' : 'border-white/10'
+                                                }`}>
+                                                    <img
+                                                        src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${dualResult.baseline.url}`}
+                                                        alt="Baseline"
+                                                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
+                                                    />
+                                                    <button 
+                                                        onClick={(e) => handleDownloadImage(e, dualResult.baseline.url, 'baseline')}
+                                                        className="absolute bottom-2 right-2 p-1.5 bg-black/50 hover:bg-black/80 text-white rounded-lg backdrop-blur-sm transition-all z-10"
+                                                        title="Download Image"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                    </button>
+                                                    {selectedImage === 'baseline' && (
+                                                        <div className="absolute inset-0 border-2 border-gray-400 rounded-xl flex items-end justify-center pb-2 pointer-events-none">
+                                                            <span className="bg-gray-700/80 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">✓ Selected</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="aspect-square rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                                                    <span className="text-gray-600 text-xs">Failed</span>
+                                                </div>
+                                            )}
+                                            {dualResult.baseline?.clip_score != null && (
+                                                <ClipBar score={dualResult.baseline.clip_score} color="from-gray-400 to-gray-500" />
+                                            )}
+                                        </div>
+
+                                        {/* Brand-conditioned */}
+                                        <div
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => handleSelectImage('conditioned')}
+                                            className={`group text-left space-y-2 rounded-xl p-2 transition-all border-2 cursor-pointer ${
+                                                selectedImage === 'conditioned'
+                                                    ? 'border-purple-500 bg-purple-500/5'
+                                                    : 'border-transparent hover:border-purple-500/40'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-purple-400 font-medium">Brand-DNA</span>
+                                                {dualResult.conditioned?.clip_score != null && (
+                                                    <ClipBadge score={dualResult.conditioned.clip_score} highlight />
+                                                )}
+                                            </div>
+                                            {dualResult.conditioned?.url ? (
+                                                <div className={`relative aspect-square rounded-xl overflow-hidden border ${
+                                                    selectedImage === 'conditioned' ? 'border-purple-500' : 'border-purple-500/30'
+                                                }`}>
+                                                    <img
+                                                        src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${dualResult.conditioned.url}`}
+                                                        alt="Brand-conditioned"
+                                                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
+                                                    />
+                                                    <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                                                        <div className="px-1.5 py-0.5 bg-purple-500/80 text-white text-[10px] rounded-full backdrop-blur-sm">Brand-DNA</div>
+                                                        {dualResult.conditioned?.style_ref_used && (
+                                                            <div className="px-1.5 py-0.5 bg-blue-500/80 text-white text-[10px] rounded-full backdrop-blur-sm">Style Ref Used</div>
+                                                        )}
+                                                    </div>
+                                                    <button 
+                                                        onClick={(e) => handleDownloadImage(e, dualResult.conditioned.url, 'brand_dna')}
+                                                        className="absolute bottom-2 right-2 p-1.5 bg-black/50 hover:bg-black/80 text-white rounded-lg backdrop-blur-sm transition-all z-10"
+                                                        title="Download Image"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                    </button>
+                                                    {selectedImage === 'conditioned' && (
+                                                        <div className="absolute inset-0 border-2 border-purple-500 rounded-xl flex items-end justify-center pb-2 pointer-events-none">
+                                                            <span className="bg-purple-700/80 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">✓ Selected</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="aspect-square rounded-xl bg-white/5 border border-purple-500/20 flex items-center justify-center">
+                                                    <span className="text-gray-600 text-xs">Failed</span>
+                                                </div>
+                                            )}
+                                            {dualResult.conditioned?.clip_score != null && (
+                                                <ClipBar score={dualResult.conditioned.clip_score} color="from-purple-400 to-pink-400" />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* CLIP anchor */}
+                                    {dualResult.conditioned?.clip_anchor && (
+                                        <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Brand CLIP Anchor</p>
+                                            <p className="text-xs text-purple-300 italic">"{dualResult.conditioned.clip_anchor}"</p>
+                                        </div>
+                                    )}
+
+                                    {/* Prompt toggle */}
+                                    <button
+                                        onClick={() => setShowPromptDetails(p => !p)}
+                                        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                                    >
+                                        {showPromptDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                        {showPromptDetails ? 'Hide' : 'Show'} prompts used
+                                    </button>
+                                    {showPromptDetails && (
+                                        <div className="space-y-2 text-xs animate-fadeIn">
+                                            <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+                                                <p className="text-gray-500 uppercase mb-1">Baseline prompt</p>
+                                                <p className="text-gray-300">{dualResult.baseline?.prompt || dualResult.conditioned?.baseline_prompt}</p>
+                                            </div>
+                                            <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
+                                                <p className="text-purple-400 uppercase mb-1">Brand-conditioned prompt</p>
+                                                <p className="text-gray-300">{dualResult.conditioned?.prompt}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Caption */}
@@ -670,3 +877,35 @@ export default function CreatePostPage() {
         </div>
     );
 }
+
+// ── CLIP helper components ────────────────────────────────────────────────────
+
+function ClipBadge({ score, highlight }: { score: number; highlight?: boolean }) {
+    const pct = Math.round(score * 100);
+    const level = score >= 0.35 ? 'high' : score >= 0.25 ? 'moderate' : 'low';
+    const colors: Record<string, string> = {
+        high:     highlight ? 'bg-purple-500/20 text-purple-300 border-purple-500/40' : 'bg-green-500/20 text-green-300 border-green-500/40',
+        moderate: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+        low:      'bg-red-500/20 text-red-300 border-red-500/40',
+    };
+    return (
+        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono font-bold ${colors[level]}`}>
+            CLIP {pct}%
+        </span>
+    );
+}
+
+function ClipBar({ score, color }: { score: number; color: string }) {
+    const pct = Math.min(Math.round((score / 0.5) * 100), 100);
+    return (
+        <div className="space-y-0.5">
+            <div className="h-1 w-full rounded-full bg-white/5 overflow-hidden">
+                <div
+                    className={`h-full rounded-full bg-gradient-to-r ${color} transition-all duration-700`}
+                    style={{ width: `${pct}%` }}
+                />
+            </div>
+            <p className="text-center text-[10px] text-gray-500 font-mono">{score.toFixed(4)}</p>
+        </div>
+    );
+}

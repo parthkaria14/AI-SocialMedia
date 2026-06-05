@@ -9,6 +9,7 @@ import os
 import json
 from dotenv import load_dotenv
 from scrapers.instagram_scraper import InstagramScraper
+from scrapers.apify_scraper import ApifyScraper
 
 from agents.base_agent import BaseAgent
 
@@ -140,9 +141,27 @@ class CompetitorAnalyzer(BaseAgent):
         """
         Analyze a single competitor's social media presence
         """
-        # Scrape competitor data
-        competitor_data = self.scraper.get_complete_brand_data(competitor_handle, max_posts=max_posts)
+        # Try Apify first
+        competitor_data = None
+        try:
+            print(f"[competitor_analyzer] Trying Apify for @{competitor_handle}...")
+            apify = ApifyScraper()
+            competitor_data = apify.get_complete_brand_data(competitor_handle, max_posts=max_posts)
+            if competitor_data:
+                print(f"[competitor_analyzer] ✅ Apify succeeded for @{competitor_handle}")
+        except Exception as e:
+            print(f"[competitor_analyzer] ⚠️ Apify failed for @{competitor_handle}: {e}")
         
+        # Fallback to InstagramScraper (instaloader) if Apify failed or returned None
+        if not competitor_data:
+            try:
+                print(f"[competitor_analyzer] Trying fallback instaloader for @{competitor_handle}...")
+                competitor_data = self.scraper.get_complete_brand_data(competitor_handle, max_posts=max_posts)
+                if competitor_data:
+                    print(f"[competitor_analyzer] ✅ instaloader succeeded for @{competitor_handle}")
+            except Exception as e:
+                print(f"[competitor_analyzer] ❌ instaloader also failed for @{competitor_handle}: {e}")
+
         if not competitor_data:
             return {"success": False, "error": "Failed to scrape competitor data"}
         

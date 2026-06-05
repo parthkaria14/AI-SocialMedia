@@ -36,7 +36,7 @@ class ImageGenerator:
             params = {
                 "width": width,
                 "height": height,
-                "model": "gptimage",  # Model to use
+                "model": "kontext",  # Model to use
                 "nologo": "true",
             }
             
@@ -65,7 +65,7 @@ class ImageGenerator:
                     "filepath": filepath,
                     "filename": filename,
                     "prompt": prompt,
-                    "model": "gptimage"
+                    "model": "kontext" #gptimage
                 }
             else:
                 return {

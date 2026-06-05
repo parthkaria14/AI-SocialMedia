@@ -16,6 +16,8 @@ from scrapers.apify_scraper import ApifyScraper
 from agents.brand_analyzer import BrandAnalyzer
 from agents.competitor_analyzer import CompetitorAnalyzer
 from generators.image_generator import ImageGenerator
+from generators.brand_conditioned_generator import BrandConditionedGenerator, BrandDNAExtractor
+from generators.engagement_predictor import EngagementPredictor
 from agents.orchestrator import OrchestratorAgent
 from agents.shared_memory import SharedMemory
 
@@ -102,7 +104,263 @@ class CampaignUpdate(BaseModel):
 class CampaignStatusUpdate(BaseModel):
     status: str  # draft, active, paused, completed
 
+# Research module request models
+class BrandConditionedImageRequest(BaseModel):
+    brand_id: int
+    content_ideas: List[dict]
+    count: int = 3
+    n_candidates: int = 3   # candidates per idea (ranked by CLIP)
+    top_k: int = 1          # how many to return after ranking
+
+class EngagementPredictRequest(BaseModel):
+    brand_id: int
+    draft_post: dict        # timestamp, caption, hashtags, typename, mentions
+    run_loo_cv: bool = False  # set True to include LOO-CV metrics in response
+
+class CLIPCompareRequest(BaseModel):
+    brand_id: int
+    idea_title: str
+    idea_description: str = ""
+
 # Routes
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RESEARCH ENDPOINTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@app.post("/research/compare")
+def research_compare_clip(
+    request: CLIPCompareRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Generate ONE baseline image and ONE brand-conditioned image for the
+    same content idea, score both with CLIP, and return the side-by-side
+    comparison with full prompt details.
+
+    Use this endpoint to populate the frontend CLIP comparison demo.
+    Response shape:
+    {
+      baseline:  { url, prompt, clip_score, method: 'baseline' },
+      conditioned: { url, prompt, clip_score, clip_anchor, brand_dna, method: 'brand_conditioned' },
+      delta:     clip_score improvement (conditioned - baseline),
+      clip_enabled: bool
+    }
+    """
+    brand = db.query(Brand).filter(Brand.id == request.brand_id).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    if not brand.brand_profile:
+        raise HTTPException(status_code=400, detail="Brand not analyzed yet. Sync first.")
+
+    brand_data = get_brand_data_cached(brand, db, max_posts=50)
+    if not brand_data:
+        raise HTTPException(status_code=503, detail="Could not fetch brand data.")
+
+    content_idea = {
+        "title":       request.idea_title,
+        "description": request.idea_description,
+    }
+
+    gen = BrandConditionedGenerator(n_candidates=1, top_k=1)
+
+    # Run baseline
+    baseline = gen.generate_baseline(content_idea, brand.brand_profile)
+    if baseline.get("filename"):
+        baseline["url"] = f"/api/images/{baseline['filename']}"
+    baseline.pop("image", None)
+
+    # Run brand-conditioned
+    conditioned_full = gen.generate(content_idea, brand_data)
+    top = conditioned_full.get("top_result", {})
+    conditioned = {
+        "url":           f"/api/images/{top['filename']}" if top.get("filename") else None,
+        "filename":      top.get("filename"),
+        "prompt":        conditioned_full.get("enriched_prompt"),
+        "baseline_prompt": conditioned_full.get("baseline_prompt"),
+        "clip_score":    top.get("clip_score"),
+        "clip_anchor":   conditioned_full.get("brand_dna", {}).get("aesthetic_text"),
+        "brand_dna":     conditioned_full.get("brand_dna"),
+        "method":        "brand_conditioned",
+        "style_ref_used": top.get("style_ref_used", False),
+        "style_ref_url":  conditioned_full.get("style_ref_url"),
+    }
+
+    b_score = baseline.get("clip_score") or 0
+    c_score = conditioned.get("clip_score") or 0
+    delta = round(c_score - b_score, 4) if (b_score and c_score) else None
+
+    return {
+        "brand_id":    request.brand_id,
+        "baseline":    baseline,
+        "conditioned": conditioned,
+        "delta":       delta,
+        "clip_enabled": conditioned_full.get("clip_enabled", False),
+    }
+
+
+@app.post("/research/images/brand-conditioned")
+def research_brand_conditioned_images(
+    request: BrandConditionedImageRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Research Module 1 — Brand-Conditioned Image Generation + CLIP Ranking.
+
+    Pipeline (vs baseline /images/generate):
+      1. Extract Brand-DNA from scraped post history.
+      2. Enrich generation prompt with brand aesthetic tokens.
+      3. Generate N candidates per idea (diversity sampling).
+      4. Score each candidate with CLIP cosine similarity.
+      5. Return candidates ranked by CLIP brand-alignment score.
+
+    Response includes:
+      • brand_dna          : extracted aesthetic identity
+      • baseline_prompt    : what the old system would have sent
+      • enriched_prompt    : brand-conditioned prompt
+      • candidates         : all generated images with CLIP scores
+      • top_result         : best image by CLIP score
+      • clip_enabled       : whether CLIP was available (else scores=None)
+    """
+    brand = db.query(Brand).filter(Brand.id == request.brand_id).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    if not brand.brand_profile:
+        raise HTTPException(status_code=400, detail="Brand not analyzed yet. Sync first.")
+
+    brand_data = get_brand_data_cached(brand, db, max_posts=50)
+    if not brand_data:
+        raise HTTPException(status_code=503, detail="Could not fetch brand data for DNA extraction.")
+
+    generator = BrandConditionedGenerator(
+        n_candidates=request.n_candidates,
+        top_k=request.top_k,
+    )
+    results = generator.batch_generate(
+        content_ideas=request.content_ideas,
+        brand_data=brand_data,
+        count=request.count,
+    )
+    for r in results:
+        if r.get("filename"):
+            r["url"] = f"/api/images/{r['filename']}"
+
+    return {
+        "brand_id":     request.brand_id,
+        "method":       "brand_conditioned",
+        "n_candidates": request.n_candidates,
+        "results":      results,
+        "paper_note": (
+            "Compare clip_score here vs /research/images/baseline. "
+            "Higher score = better brand alignment per CLIP ViT-B/32."
+        ),
+    }
+
+
+@app.post("/research/images/baseline")
+def research_baseline_image(
+    brand_id: int,
+    content_idea: dict,
+    db: Session = Depends(get_db),
+):
+    """
+    Research Module 1 — Baseline image generation WITH CLIP score.
+    Identical to old /images/generate but adds CLIP score for paper tables.
+    Use alongside /research/images/brand-conditioned to measure improvement.
+    """
+    brand = db.query(Brand).filter(Brand.id == brand_id).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    if not brand.brand_profile:
+        raise HTTPException(status_code=400, detail="Brand not analyzed yet.")
+
+    brand_data = get_brand_data_cached(brand, db, max_posts=50)
+    gen = BrandConditionedGenerator()
+    result = gen.generate_baseline(content_idea, brand.brand_profile)
+    if result.get("filename"):
+        result["url"] = f"/api/images/{result['filename']}"
+    return result
+
+
+@app.post("/research/engagement/predict")
+def research_predict_engagement(
+    request: EngagementPredictRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Research Module 2 — Pre-publication Engagement Rate Prediction.
+
+    Trains Ridge regression on brand's scraped post history (self-supervised),
+    then predicts ER for a draft post before publishing.
+
+    Features: cyclical hour/day encoding, hashtag_count, caption_length,
+              content_type flags, has_location, has_mention, follower_bucket.
+
+    Returns predicted_er, confidence_interval, best scheduling time,
+    feature_importances, and optional LOO-CV metrics for the paper.
+    """
+    brand = db.query(Brand).filter(Brand.id == request.brand_id).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    brand_data = get_brand_data_cached(brand, db, max_posts=50)
+    if not brand_data:
+        raise HTTPException(status_code=503, detail="Could not fetch brand data for training.")
+
+    predictor = EngagementPredictor()
+    train_metrics = predictor.fit(brand_data)
+
+    if "error" in train_metrics:
+        raise HTTPException(status_code=400, detail=train_metrics["error"])
+
+    prediction = predictor.predict(
+        draft_post=request.draft_post,
+        followers=brand_data.get("profile", {}).get("followers"),
+    )
+
+    response = {
+        "brand_id":      request.brand_id,
+        "train_metrics": train_metrics,
+        "prediction":    prediction,
+        "model_state":   predictor.to_dict(),
+    }
+
+    if request.run_loo_cv:
+        response["loo_cv"] = predictor.cross_validate(brand_data)
+
+    return response
+
+
+@app.get("/research/brand-dna/{brand_id}")
+def research_brand_dna(
+    brand_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Research Module 1-A — Extract and return Brand-DNA for a brand.
+    Useful for paper tables showing extracted aesthetic tokens.
+    """
+    brand = db.query(Brand).filter(Brand.id == brand_id).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    brand_data = get_brand_data_cached(brand, db, max_posts=50)
+    if not brand_data:
+        raise HTTPException(status_code=503, detail="Could not fetch brand data.")
+
+    from generators.brand_conditioned_generator import BrandDNA
+    dna = BrandDNAExtractor().extract(brand_data)
+    return {
+        "brand_id":  brand_id,
+        "handle":    brand.instagram_handle,
+        "brand_dna": dna.to_dict(),
+    }
+
+
+# ── End research endpoints ────────────────────────────────────────────────────
+
 
 @app.get("/")
 def root():
@@ -538,8 +796,8 @@ def analyze_competitors(request: CompetitorAnalysisRequest, db: Session = Depend
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
     
-    # Get brand's scraped data — Apify primary, instaloader fallback
-    brand_data = get_brand_data_with_fallback(brand.instagram_handle, max_posts=30)
+    # Get brand's scraped data — DB cache first, scrape if stale/missing
+    brand_data = get_brand_data_cached(brand, db, max_posts=50)
     
     if not brand_data:
         raise HTTPException(status_code=400, detail="Failed to fetch brand data")
@@ -1007,6 +1265,173 @@ def unlink_posts_from_campaign(campaign_id: int, post_ids: List[int], db: Sessio
     return {
         "message": f"Unlinked {unlinked_count} posts from campaign",
         "campaign_id": campaign_id
+    }
+
+
+# ── Cache-first brand data helper ────────────────────────────────────────────
+_CACHE_TTL_HOURS = 6   # treat DB data as fresh if synced within this window
+
+def get_brand_data_cached(
+    brand,           # Brand ORM object
+    db: Session,
+    max_posts: int = 50,
+    force_refresh: bool = False,
+) -> dict | None:
+    """
+    Return brand_data dict without hitting the scraper if:
+      • brand.last_synced is within _CACHE_TTL_HOURS hours, AND
+      • InstagramPost rows for this brand exist in the DB.
+
+    Otherwise falls through to get_brand_data_with_fallback() and
+    does NOT update the DB (that's scrape_and_analyze_brand's job).
+
+    This prevents redundant Apify/instaloader calls on every research/
+    competitor endpoint hit — Apify credits are finite.
+    """
+    from datetime import timedelta
+
+    instagram_handle = brand.instagram_handle
+
+    # ── Try DB cache first ────────────────────────────────────────────────────
+    if not force_refresh and brand.last_synced:
+        age = datetime.utcnow() - brand.last_synced
+        if age < timedelta(hours=_CACHE_TTL_HOURS):
+            ig_posts = (
+                db.query(InstagramPost)
+                .filter(InstagramPost.brand_id == brand.id)
+                .order_by(InstagramPost.posted_at.desc())
+                .limit(max_posts)
+                .all()
+            )
+            if ig_posts:
+                print(
+                    f"[cache] ✅ Using DB data for @{instagram_handle} "
+                    f"({len(ig_posts)} posts, synced {round(age.seconds/3600, 1)}h ago)"
+                )
+                return _reconstruct_brand_data_from_db(brand, ig_posts)
+            print(f"[cache] ⚠️  DB has no posts for @{instagram_handle}, falling back to scraper")
+        else:
+            print(
+                f"[cache] 🕐 DB data stale ({round(age.total_seconds()/3600, 1)}h old > "
+                f"{_CACHE_TTL_HOURS}h TTL), re-scraping @{instagram_handle}"
+            )
+
+    # ── DB miss / stale / forced refresh → live scrape ───────────────────────
+    return get_brand_data_with_fallback(instagram_handle, max_posts=max_posts)
+
+
+def _reconstruct_brand_data_from_db(brand, ig_posts: list) -> dict:
+    """
+    Build the same dict shape as ApifyScraper.get_complete_brand_data()
+    using data already stored in the DB.  Used by get_brand_data_cached().
+    """
+    import math as _math
+
+    profile_raw = brand.brand_profile or {}
+
+    # Profile — stored in brand_profile JSON by analyze_brand_profile()
+    profile = {
+        "username":        brand.instagram_handle,
+        "full_name":       profile_raw.get("full_name", brand.name),
+        "bio":             profile_raw.get("bio", ""),
+        "followers":       profile_raw.get("followers", 0),
+        "following":       profile_raw.get("following", 0),
+        "posts_count":     profile_raw.get("posts_count", len(ig_posts)),
+        "is_verified":     profile_raw.get("is_verified", False),
+        "is_private":      profile_raw.get("is_private", False),
+        "profile_pic_url": profile_raw.get("profile_pic_url", ""),
+        "external_url":    profile_raw.get("external_url", None),
+        "category":        profile_raw.get("category", None),
+    }
+    followers = profile["followers"] or 1
+
+    # Posts
+    posts = []
+    for p in ig_posts:
+        ts = p.posted_at.isoformat() if p.posted_at else datetime.utcnow().isoformat()
+        likes    = p.likes or 0
+        comments = p.comments_count or 0
+        er       = p.engagement_rate or 0
+        typename = "GraphVideo" if p.is_video else "GraphImage"
+        posts.append({
+            "post_id":               p.shortcode or "",
+            "url":                   p.post_url or f"https://instagram.com/p/{p.shortcode}/",
+            "caption":               p.caption or "",
+            "likes":                 likes,
+            "comments":              comments,
+            "views":                 None,
+            "timestamp":             ts,
+            "is_video":              p.is_video or False,
+            "typename":              typename,
+            "media_url":             p.media_url or "",
+            "hashtags":              p.hashtags or [],
+            "mentions":              [],
+            "location":              None,
+            "engagement_rate":       er,
+            "engagement_rate_views": None,
+            "display_url":           p.media_url or "",
+        })
+
+    # Patterns (recompute from stored posts — cheap, no network)
+    if posts:
+        all_er    = [p["engagement_rate"] for p in posts]
+        avg_er    = sum(all_er) / len(all_er)
+        hour_eng: dict = {}
+        day_eng:  dict = {}
+        for post in posts:
+            try:
+                from datetime import datetime as _dt
+                dt = _dt.fromisoformat(post["timestamp"].replace("Z", "+00:00"))
+                hour_eng.setdefault(dt.hour,          []).append(post["engagement_rate"])
+                day_eng.setdefault(dt.strftime("%A"), []).append(post["engagement_rate"])
+            except Exception:
+                pass
+        best_hours = sorted(hour_eng.items(), key=lambda x: sum(x[1])/len(x[1]), reverse=True)[:3]
+        best_days  = sorted(day_eng.items(),  key=lambda x: sum(x[1])/len(x[1]), reverse=True)[:3]
+        patterns = {
+            "best_posting_hours":           [h[0] for h in best_hours],
+            "best_posting_days":            [d[0] for d in best_days],
+            "average_likes":                round(sum(p["likes"]    for p in posts) / len(posts)),
+            "average_comments":             round(sum(p["comments"] for p in posts) / len(posts)),
+            "average_views":                0,
+            "total_views":                  0,
+            "average_engagement_rate":      round(avg_er, 4),
+            "median_engagement_rate":       round(sorted(all_er)[len(all_er)//2], 4),
+            "adjusted_avg_engagement_rate": round(avg_er, 4),
+            "outlier_count":                0,
+            "outlier_shortcodes":           [],
+            "average_engagement_rate_views": None,
+            "posting_frequency":            len(posts),
+        }
+    else:
+        patterns = {}
+
+    # Brand elements
+    hashtag_freq: dict = {}
+    captions = []
+    for post in posts:
+        if post.get("caption"):
+            captions.append(post["caption"])
+        for tag in (post.get("hashtags") or []):
+            hashtag_freq[tag] = hashtag_freq.get(tag, 0) + 1
+
+    top_tags = sorted(hashtag_freq.items(), key=lambda x: x[1], reverse=True)[:20]
+    brand_elements = {
+        "top_hashtags":         [t[0] for t in top_tags],
+        "total_posts_analyzed": len(posts),
+        "captions_sample":      captions[:10],
+        "has_videos":           sum(1 for p in posts if p.get("typename") == "GraphVideo"),
+        "has_images":           sum(1 for p in posts if p.get("typename") == "GraphImage"),
+        "has_carousels":        sum(1 for p in posts if p.get("typename") == "GraphSidecar"),
+    }
+
+    return {
+        "profile":        profile,
+        "posts":          posts,
+        "patterns":       patterns,
+        "brand_elements": brand_elements,
+        "scraped_at":     brand.last_synced.isoformat() if brand.last_synced else datetime.utcnow().isoformat(),
+        "source":         "db_cache",
     }
 
 

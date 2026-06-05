@@ -290,4 +290,60 @@ export const unlinkPostsFromCampaign = async (campaignId: number, postIds: numbe
     return response.data;
 };
 
+// ── Research APIs ──────────────────────────────────────────────────────────
+export const getBrandDNA = async (brandId: number) => {
+    const response = await api.get(`/research/brand-dna/${brandId}`);
+    return response.data;
+};
+
+export const predictEngagement = async (
+    brandId: number,
+    draftPost: {
+        timestamp: string;
+        caption: string;
+        hashtags: string[];
+        typename: string;
+        mentions: string[];
+        location?: string | null;
+    },
+    runLooCv: boolean = false,
+) => {
+    const response = await api.post('/research/engagement/predict', {
+        brand_id: brandId,
+        draft_post: draftPost,
+        run_loo_cv: runLooCv,
+    });
+    return response.data;
+};
+
+export const generateBrandConditionedImages = async (
+    brandId: number,
+    contentIdeas: any[],
+    count: number = 3,
+    nCandidates: number = 3,
+) => {
+    const response = await api.post('/research/images/brand-conditioned', {
+        brand_id: brandId,
+        content_ideas: contentIdeas,
+        count,
+        n_candidates: nCandidates,
+        top_k: 1,
+    });
+    return response.data;
+};
+
+export const compareClip = async (
+    brandId: number,
+    ideaTitle: string,
+    ideaDescription: string = '',
+) => {
+    const response = await api.post('/research/compare', {
+        brand_id: brandId,
+        idea_title: ideaTitle,
+        idea_description: ideaDescription,
+    });
+    return response.data;
+};
+
 export default api;
+
